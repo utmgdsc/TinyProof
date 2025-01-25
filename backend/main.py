@@ -1,4 +1,5 @@
 import uvicorn
+from argparse import ArgumentParser, Namespace
 from fastapi import FastAPI
 
 app = FastAPI(dependencies=[])
@@ -10,4 +11,11 @@ async def root():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, port=5000)
+    parser = ArgumentParser(description="Run the TinyProof backend server.")
+    parser.add_argument("--port", type=int, default=5000, help="Port to run the backend on.")
+
+    args: Namespace = parser.parse_args()
+
+    port: int = args.port
+
+    uvicorn.run(app, port=port)
