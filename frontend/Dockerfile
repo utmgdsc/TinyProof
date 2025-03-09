@@ -7,6 +7,7 @@ WORKDIR /app
 # Install minimal system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    git \
     bubblewrap \
     python3-minimal \
     && rm -rf /var/lib/apt/lists/*
