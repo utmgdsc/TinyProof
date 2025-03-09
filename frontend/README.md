@@ -1,3 +1,7 @@
+# Overview
+
+This folder hosts the frontend for Tinyproof. This is an adaptation of [Lean4Web](https://github.com/leanprover-community/lean4web)
+
 # Build Instructions
 
 ## Requirements
