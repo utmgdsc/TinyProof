@@ -27,3 +27,21 @@ docker run -p 3000:3000 tinyproof-frontend
 ```
 
 Note: `3000` represents the port the front-end and the Lean4 server will be running on.
+
+## Development
+
+If you want to play around with the front-end in development, the Lean server will not work unless you're running Linux.
+
+But, to do so:
+
+Install all required npm packages
+
+```
+npm install
+```
+
+Run the front-end server
+
+```
+npm start
+```
