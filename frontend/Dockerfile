@@ -1,3 +1,5 @@
+# Claude was used to help write this Dockerfile
+
 # Use Node.js slim image as the base
 FROM node:18-slim
 
