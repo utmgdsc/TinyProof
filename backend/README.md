@@ -9,5 +9,5 @@ pip install -r requirements.txt
 To run the server, use the following command:
 
 ```bash
-python main.py
+python start.py --port 5000
 ```
