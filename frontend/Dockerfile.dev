@@ -1,0 +1,23 @@
+# GenAI was used to help write this Dockerfile
+
+FROM node:18-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    bubblewrap \
+    python3-minimal \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+ENV PATH="/root/.elan/bin:${PATH}"
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# For hot reload (Vite)
+CMD ["npm", "run", "dev"]
