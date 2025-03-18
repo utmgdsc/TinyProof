@@ -1,5 +1,4 @@
 import {
-  ChangeEvent,
   Dispatch,
   FC,
   MouseEventHandler,
@@ -13,28 +12,21 @@ import {
   IconDefinition,
   faArrowRotateRight,
   faCode,
-  faInfoCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   faArrowUpRightFromSquare,
   faBars,
   faXmark,
-  faShield,
   faHammer,
   faGear,
 } from "@fortawesome/free-solid-svg-icons";
 
 import SettingsPopup, { PreferencesContext } from "./Popups/Settings";
-import PrivacyPopup from "./Popups/PrivacyPolicy";
-import ImpressumPopup from "./Popups/Impressum";
 import ToolsPopup from "./Popups/Tools";
-import LoadUrlPopup from "./Popups/LoadUrl";
-import LoadZulipPopup from "./Popups/LoadZulip";
 
 import lean4webConfig from "./config/config";
 import "./css/Modal.css";
 import "./css/Navigation.css";
-import { lookupUrl } from "./utils/UrlParsing";
 
 /** A button to appear in the hamburger menu or to navigation bar. */
 export const NavButton: FC<{
@@ -100,7 +92,7 @@ export const Dropdown: FC<{
 /** A popup which overlays the entire screen. */
 export const Popup: FC<{
   open: boolean;
-  handleClose: () => void; // TODO: what's the correct type?
+  handleClose: () => void;
   children?: ReactNode;
 }> = ({ open, handleClose, children }) => {
   return (
@@ -128,50 +120,15 @@ export const Menu: FC<{
   restart?: () => void;
   codeMirror: boolean;
   setCodeMirror: Dispatch<SetStateAction<boolean>>;
-}> = ({
-  code,
-  setContent,
-  project,
-  setProject,
-  setUrl,
-  codeFromUrl,
-  restart,
-  codeMirror,
-  setCodeMirror,
-}) => {
+}> = ({ project, setProject, restart, codeMirror, setCodeMirror }) => {
   // state for handling the dropdown menus
   const [openNav, setOpenNav] = useState(false);
-  const [openExample, setOpenExample] = useState(false);
-  const [openLoad, setOpenLoad] = useState(false);
-  const [loadUrlOpen, setLoadUrlOpen] = useState(false);
-  const [loadZulipOpen, setLoadZulipOpen] = useState(false);
 
   // state for the popups
-  const [impressumOpen, setImpressumOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { preferences } = useContext(PreferencesContext);
-
-  const loadFromUrl = (
-    url: string,
-    project: string | undefined = undefined
-  ) => {
-    url = lookupUrl(url);
-    console.debug("load code from url");
-    setUrl((oldUrl: string | null) => {
-      if (oldUrl === url) {
-        setContent(codeFromUrl);
-      }
-      return url;
-    });
-    if (project) {
-      setProject(project);
-    }
-  };
-
-  const hasImpressum =
-    lean4webConfig.impressum || lean4webConfig.contactDetails;
 
   return (
     <div className="menu">
@@ -202,10 +159,6 @@ export const Menu: FC<{
         open={openNav}
         setOpen={setOpenNav}
         icon={openNav ? faXmark : faBars}
-        onClick={() => {
-          setOpenExample(false);
-          setOpenLoad(false);
-        }}
       >
         <NavButton
           icon={faGear}
@@ -224,15 +177,6 @@ export const Menu: FC<{
           text="Restart server"
           onClick={restart}
         />
-        {hasImpressum && (
-          <NavButton
-            icon={faInfoCircle}
-            text={"Impressum"}
-            onClick={() => {
-              setImpressumOpen(true);
-            }}
-          />
-        )}
         <NavButton
           icon={faArrowUpRightFromSquare}
           text="Lean community"
@@ -244,12 +188,6 @@ export const Menu: FC<{
           href="https://leanprover.github.io/lean4/doc/"
         />
       </Dropdown>
-      {hasImpressum && (
-        <ImpressumPopup
-          open={impressumOpen}
-          handleClose={() => setImpressumOpen(false)}
-        />
-      )}
       <ToolsPopup
         open={toolsOpen}
         handleClose={() => setToolsOpen(false)}
@@ -261,16 +199,6 @@ export const Menu: FC<{
         closeNav={() => setOpenNav(false)}
         project={project}
         setProject={setProject}
-      />
-      <LoadUrlPopup
-        open={loadUrlOpen}
-        handleClose={() => setLoadUrlOpen(false)}
-        loadFromUrl={loadFromUrl}
-      />
-      <LoadZulipPopup
-        open={loadZulipOpen}
-        handleClose={() => setLoadZulipOpen(false)}
-        setContent={setContent}
       />
     </div>
   );
