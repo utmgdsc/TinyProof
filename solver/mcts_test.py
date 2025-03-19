@@ -5,10 +5,9 @@ import json
 counter = 0
 def generate(s):
   global counter
-  if counter == 0:
-    counter += 1
-    return "example (a b c : Nat): c + a + b = a + (b + c) := by\n  cases a with\n  | zero => "
-  return "example (a b c : Nat): c + a + b = a + (b + c) := by\n  rw [Nat.add_comm]\n  rw [<- Nat.add_assoc]"
+  out = ["example (a b c : Nat): c + a + b = a + (b + c) := by\n  cases a with\n  | zero => ", "example (a b c : Nat): c + a + b = a + (b + c) := by\n  rw [Nat.add_assoc] ", "example (a b c : Nat): c + a + b = a + (b + c) := by\n  rw [Nat.add_assoc]\n  rw [<- Nat.add_comm]\n  rw [Nat.add_assoc]"][counter]
+  counter += 1
+  return out
 
 def count_leading_whitespace(s):
     return len(s) - len(s.lstrip())
@@ -27,14 +26,9 @@ def addGoal(ctx, pos, goal):
 HOME_DIR = os.path.expanduser('~')
 DEFAULT_LAKE_PATH = f'{HOME_DIR}/.elan/bin/lake'
 DEFAULT_LEAN_WORKSPACE = 'TestLean'
-i = 0
-
-messages = []
 
 prompt = "example (a b c : Nat): c + a + b = a + (b + c) := by"
-while messages != None:
-  if i == 2:
-    exit()
+while True:
   temp = generate(prompt)
   # Create a proper JSON command for the Lake REPL
   repl_command = { "cmd" : temp }
@@ -54,13 +48,12 @@ while messages != None:
       timeout=300
   )
 
-  print(process.stderr)
-  print(process.stdout)
+  print("stderr:", process.stderr)
+  print("stdout:", process.stdout)
   output = json.loads(process.stdout)
   print(output)
-  prompt = addGoal(temp, output.get("messages")[0]["pos"], output.get("messages")[0]["data"])
-
-  print("Return code:", process.returncode)
-  print("Stdout:", process.stdout)
+  messages = output.get("messages")
+  if messages is None:
+    exit()
+  prompt = addGoal(temp, messages[0]["endPos"] or messages[0]["pos"], messages[0]["data"])
   # print("Stderr:", process.stderr)
-  i += 1
