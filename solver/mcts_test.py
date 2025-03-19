@@ -7,7 +7,7 @@ def generate(s):
   global counter
   if counter == 0:
     counter += 1
-    return "example (a b c : Nat): c + a + b = a + (b + c) := by\n rw [Nat.add_comm]"
+    return "example (a b c : Nat): c + a + b = a + (b + c) := by\n  cases a with\n  | zero => "
   return "example (a b c : Nat): c + a + b = a + (b + c) := by\n  rw [Nat.add_comm]\n  rw [<- Nat.add_assoc]"
 
 def count_leading_whitespace(s):
@@ -15,7 +15,8 @@ def count_leading_whitespace(s):
 
 # TODO :: support adding mutiple goals
 def addGoal(ctx, pos, goal):
-  whitespace = count_leading_whitespace(ctx.split("\n")[pos["line"]])
+  # note: line numbers start at 1
+  whitespace = count_leading_whitespace(ctx.split("\n")[pos["line"] - 1])
   out = ctx + "\n" + whitespace * " " + "/-\n"
   lines = goal.split("\n")
   for line in lines:
@@ -25,11 +26,10 @@ def addGoal(ctx, pos, goal):
 
 HOME_DIR = os.path.expanduser('~')
 DEFAULT_LAKE_PATH = f'{HOME_DIR}/.elan/bin/lake'
-DEFAULT_LEAN_WORKSPACE = './'
+DEFAULT_LEAN_WORKSPACE = 'TestLean'
+i = 0
 
 messages = []
-
-i = 0
 
 prompt = "example (a b c : Nat): c + a + b = a + (b + c) := by"
 while messages != None:
@@ -54,7 +54,10 @@ while messages != None:
       timeout=300
   )
 
+  print(process.stderr)
+  print(process.stdout)
   output = json.loads(process.stdout)
+  print(output)
   prompt = addGoal(temp, output.get("messages")[0]["pos"], output.get("messages")[0]["data"])
 
   print("Return code:", process.returncode)

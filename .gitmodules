@@ -1,0 +1,3 @@
+[submodule "TestLean"]
+	path = TestLean
+	url = https://github.com/FrederickPu/TestLean.git
