@@ -1,32 +1,22 @@
 // Claude 3.5 Sonnet was used to help write this code.
 import { useState, useEffect } from "react";
 
-type SolverProps = {
-  /**
-   * The URL of the solver websocket
-   */
+interface SolverProps {
+  // The URL of the solver websocket
   url: string;
 
-  /**
-   * Runs when the websocket is connected
-   */
+  // Runs when the websocket is connected
   onConnect?: () => void;
 
-  /**
-   * Runs when the websocket is disconnected
-   */
+  // Runs when the websocket is disconnected
   onDisconnect?: () => void;
 
-  /**
-   * Runs when an error occurs
-   */
+  // Runs when an error occurs
   onError?: (event: Event) => void;
 
-  /**
-   * Runs when a proof step is received
-   */
+  // Runs when a proof step is received
   onProofStep?: (proof: string) => void;
-};
+}
 
 export default function useSolver({
   url,
