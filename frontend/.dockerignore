@@ -6,3 +6,4 @@ Dockerfile
 .dockerignore
 .env
 .DS_Store
+dist
