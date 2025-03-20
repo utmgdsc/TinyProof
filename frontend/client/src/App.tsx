@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Split from 'react-split'
 import * as monaco from 'monaco-editor'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
@@ -6,6 +6,7 @@ import { LeanMonaco, LeanMonacoEditor, LeanMonacoOptions } from 'lean4monaco'
 import LZString from 'lz-string'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCode } from '@fortawesome/free-solid-svg-icons'
+import axios from 'axios'
 
 // Local imports
 import LeanLogo from './assets/logo.svg'
@@ -34,6 +35,17 @@ function App() {
   const [preferences, setPreferences] = useState<IPreferencesContext>(defaultSettings)
   const { width } = useWindowDimensions()
 
+  const [proofs, setProofs] = useState<string[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  const goLeft = () => {
+    setCurrentIndex((prev) => (prev === 0 ? proofs.length - 1 : prev - 1))
+  }
+
+  const goRight = () => {
+    setCurrentIndex((prev) => (prev === proofs.length - 1 ? 0 : prev + 1))
+  }
+
   // Lean4monaco options
   const [options, setOptions] = useState<LeanMonacoOptions>({
     // placeholder, updated below
@@ -57,6 +69,12 @@ function App() {
     editor?.getModel()?.setValue(code)
     setCode(code)
   }
+
+  useEffect(() => {
+    axios.get('http://localhost:8000/proofs')
+      .then(res => setProofs(res.data.proofs))
+      .catch(err => console.error('Error fetching proofs:', err))
+  }, [])
 
   // Load preferences from store in the beginning
   useEffect(() => {
@@ -147,7 +165,7 @@ function App() {
     var _leanMonaco = new LeanMonaco()
     var leanMonacoEditor = new LeanMonacoEditor()
 
-    _leanMonaco.setInfoviewElement(infoviewRef.current!)
+    _leanMonaco.setInfoviewElement(infoviewRef.current!) // DISABLE THE REF FOR INFOVIEW 
     ;(async () => {
         await _leanMonaco.start(options)
         await leanMonacoEditor.start(editorRef.current!, `/project/${project}.lean`, code)
@@ -403,6 +421,24 @@ function App() {
             </p>
         </div>
       </Split>
+
+
+    <div style={{ padding: "1rem" }}>
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "0.5rem" }}>
+        <button onClick={goLeft}>⬅️</button>
+        <button onClick={goRight}>➡️</button>
+      </div>
+      <pre style={{
+        whiteSpace: 'pre-wrap',
+        background: '#f4f4f4',
+        padding: '1rem',
+        borderRadius: '8px',
+        fontSize: '14px',
+      }}>
+        {proofs[currentIndex]}
+      </pre>
+    </div>
+    
     </div>
   </PreferencesContext.Provider>
 
