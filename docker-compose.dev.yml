@@ -6,12 +6,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     ports:
-      - "8080:8080"
+      - "5000:5000"
     volumes:
       - ./backend:/app
     environment:
       - PORT=8080
-    command: ["python", "start.py", "--port", "8080", "--debug"]
+    command: ["python", "start.py", "--port", "5000", "--dev"]
 
   frontend:
     build:

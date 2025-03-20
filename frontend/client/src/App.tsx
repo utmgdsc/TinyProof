@@ -71,7 +71,7 @@ function App() {
   }
 
   useEffect(() => {
-    axios.get('http://localhost:8000/proofs')
+    axios.get('http://localhost:5000/proofs')
       .then(res => setProofs(res.data.proofs))
       .catch(err => console.error('Error fetching proofs:', err))
   }, [])
@@ -438,7 +438,7 @@ function App() {
         {proofs[currentIndex]}
       </pre>
     </div>
-    
+
     </div>
   </PreferencesContext.Provider>
 
