@@ -55,7 +55,13 @@ docker-compose -f docker-compose.prod.yml up --build
 ### Stop all running containers
 
 ```bash
-docker-compose down
+docker-compose -f docker-compose.dev.yml down
+```
+
+or
+
+```bash
+docker-compose -f docker-compose.prod.yml down
 ```
 
 ### Rebuild and start containers
