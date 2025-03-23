@@ -44,8 +44,17 @@ async def proof_solver_websocket(websocket: WebSocket):
 
     try:
         while True:
-            await websocket.send("Hello!")
-            await asyncio.sleep(1)
+            # Step 1: Receive Lean statement from client
+            data = await websocket.receive_text()
+            logging.info(f"Received Lean statement: {data}")
+
+            # Step 2: CALL MODEL HERE
+            # In real use, send `data` to model
+            # For now, just mock a proof result
+            generated_proof = f"theorem result : {data} :=\nbegin\n  exact proof_goes_here\nend"
+
+            # Step 3: Send proof back to frontend
+            await websocket.send_text(generated_proof)
     except WebSocketDisconnect:
         logging.info("[WebSocket] disconnected")
     except Exception as e:

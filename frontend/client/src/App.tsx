@@ -39,6 +39,10 @@ function App() {
 
   const [exploreMode, setExploreMode] = useState(true)
 
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+  const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
+  const socketRef = useRef<WebSocket | null>(null)
+
   const goLeft = () => {
     const newIndex = currentIndex === 0 ? proofs.length - 1 : currentIndex - 1
     setCurrentIndex(newIndex)
@@ -74,6 +78,39 @@ function App() {
     editor?.getModel()?.setValue(code)
     setCode(code)
   }
+
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    socketRef.current = new WebSocket(`${protocol}://${window.location.host}/ws`)
+  
+    socketRef.current.onopen = () => {
+      console.log("[WebSocket] Connected")
+    };
+  
+    socketRef.current.onmessage = (event) => {
+      const proofAttempt = event.data;
+      setContent(proofAttempt)
+    };
+  
+    socketRef.current.onclose = () => {
+      console.log("[WebSocket] Disconnected")
+    };
+  
+    return () => {
+      socketRef.current?.close()
+    };
+  }, [])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(code)
+        console.log("[WebSocket] Sent code:", code)
+      }
+    }, 500) // waits 500ms after last change
+  
+    return () => clearTimeout(timeout)
+  }, [code])
 
   useEffect(() => {
     fetch("http://localhost:5000/proofs")
