@@ -1,6 +1,6 @@
 {
-  "short_name": "Lean 4 Web",
-  "name": "Lean 4 running in the browser",
+  "short_name": "TinyProof | Lean 4 Web",
+  "name": "Lean 4 proof solving with AI running in the browser ",
   "icons": [
     {
       "src": "favicon.ico",
