@@ -4,6 +4,3 @@ Dockerfile
 .git
 .github
 .dockerignore
-.env
-.DS_Store
-dist

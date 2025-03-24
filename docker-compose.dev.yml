@@ -17,9 +17,15 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     environment:
       - PORT=3000
     command: ["npm", "run", "dev"]
     depends_on:
       - backend
+      - lean
+
+  lean:
+    image: leanprovercommunity/lean:latest
+    ports:
+      - "8080:8080"
+    command: ["lean", "--server"]

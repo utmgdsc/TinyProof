@@ -82,20 +82,20 @@ function App() {
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     socketRef.current = new WebSocket(`${protocol}://${window.location.host}/ws`)
-  
+
     socketRef.current.onopen = () => {
       console.log("[WebSocket] Connected")
     };
-  
+
     socketRef.current.onmessage = (event) => {
       const proofAttempt = event.data;
       setContent(proofAttempt)
     };
-  
+
     socketRef.current.onclose = () => {
       console.log("[WebSocket] Disconnected")
     };
-  
+
     return () => {
       socketRef.current?.close()
     };
@@ -108,11 +108,11 @@ function App() {
         console.log("[WebSocket] Sent code:", code)
       }
     }, 500) // waits 500ms after last change
-  
+
     return () => clearTimeout(timeout)
   }, [code])
 
-  useEffect(() => {
+  useEffect(() => { // MOCK PROOFS
     fetch("http://localhost:5000/proofs")
       .then((res) => res.json())
       .then((data) => {
@@ -120,7 +120,7 @@ function App() {
         setContent(data.proofs[0])
       })
       .catch(console.error)
-    setExploreMode(true)
+    setExploreMode(false)
   }, [])
 
   // Load preferences from store in the beginning
@@ -212,9 +212,9 @@ function App() {
     var _leanMonaco = new LeanMonaco()
     var leanMonacoEditor = new LeanMonacoEditor()
 
-    if (!exploreMode) {
+    // if (!exploreMode) {
       _leanMonaco.setInfoviewElement(infoviewRef.current!)
-    }
+    // }
     ; (async () => {
       await _leanMonaco.start(options)
       await leanMonacoEditor.start(editorRef.current!, `/project/${project}.lean`, code)
@@ -511,6 +511,23 @@ function App() {
           }}
         >
           ➡️
+        </button>
+        <button
+          onClick={() => setExploreMode(prev => !prev)}
+          style={{
+            marginLeft: "auto",
+            marginRight: "1rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: exploreMode ? "#f0c040" : "#4caf50",
+            color: "white",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
+          }}
+        >
+          {exploreMode ? "Exit Explore Mode" : "Enter Explore Mode"}
         </button>
       </div>
 
