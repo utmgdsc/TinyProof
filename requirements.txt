@@ -1,0 +1,12 @@
+pytz
+easydict
+torch
+transformers
+numpy
+pandas
+tabulate
+termcolor
+accelerate
+fastapi
+uvicorn
+pydantic
