@@ -34,6 +34,27 @@ function App() {
   const [preferences, setPreferences] = useState<IPreferencesContext>(defaultSettings)
   const { width } = useWindowDimensions()
 
+  const [proofs, setProofs] = useState<string[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  const [exploreMode, setExploreMode] = useState(true)
+
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+  const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
+  const socketRef = useRef<WebSocket | null>(null)
+
+  const goLeft = () => {
+    const newIndex = currentIndex === 0 ? proofs.length - 1 : currentIndex - 1
+    setCurrentIndex(newIndex)
+    setContent(proofs[newIndex])
+  }
+
+  const goRight = () => {
+    const newIndex = currentIndex === proofs.length - 1 ? 0 : currentIndex + 1
+    setCurrentIndex(newIndex)
+    setContent(proofs[newIndex])
+  }
+
   // Lean4monaco options
   const [options, setOptions] = useState<LeanMonacoOptions>({
     // placeholder, updated below
@@ -53,10 +74,54 @@ function App() {
   const [codeFromUrl, setCodeFromUrl] = useState<string>('')
 
   /** Monaco editor requires the code to be set manually. */
-  function setContent (code: string) {
+  function setContent(code: string) {
     editor?.getModel()?.setValue(code)
     setCode(code)
   }
+
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    socketRef.current = new WebSocket(`${protocol}://${window.location.host}/ws`)
+  
+    socketRef.current.onopen = () => {
+      console.log("[WebSocket] Connected")
+    };
+  
+    socketRef.current.onmessage = (event) => {
+      const proofAttempt = event.data;
+      setContent(proofAttempt)
+    };
+  
+    socketRef.current.onclose = () => {
+      console.log("[WebSocket] Disconnected")
+    };
+  
+    return () => {
+      socketRef.current?.close()
+    };
+  }, [])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(code)
+        console.log("[WebSocket] Sent code:", code)
+      }
+    }, 500) // waits 500ms after last change
+  
+    return () => clearTimeout(timeout)
+  }, [code])
+
+  useEffect(() => {
+    fetch("http://localhost:5000/proofs")
+      .then((res) => res.json())
+      .then((data) => {
+        setProofs(data.proofs)
+        setContent(data.proofs[0])
+      })
+      .catch(console.error)
+    setExploreMode(true)
+  }, [])
 
   // Load preferences from store in the beginning
   useEffect(() => {
@@ -116,7 +181,7 @@ function App() {
       window.location.host + "/websocket/" + project
     console.log(`[Lean4web] socket url: ${socketUrl}`)
     var _options: LeanMonacoOptions = {
-      websocket: {url: socketUrl},
+      websocket: { url: socketUrl },
       // Restrict monaco's extend (e.g. context menu) to the editor itself
       htmlElement: editorRef.current ?? undefined,
       vscode: {
@@ -147,86 +212,89 @@ function App() {
     var _leanMonaco = new LeanMonaco()
     var leanMonacoEditor = new LeanMonacoEditor()
 
-    _leanMonaco.setInfoviewElement(infoviewRef.current!)
-    ;(async () => {
-        await _leanMonaco.start(options)
-        await leanMonacoEditor.start(editorRef.current!, `/project/${project}.lean`, code)
+    if (!exploreMode) {
+      _leanMonaco.setInfoviewElement(infoviewRef.current!)
+    }
+    ; (async () => {
+      await _leanMonaco.start(options)
+      await leanMonacoEditor.start(editorRef.current!, `/project/${project}.lean`, code)
 
-        setEditor(leanMonacoEditor.editor)
-        setLeanMonaco(_leanMonaco)
+      setEditor(leanMonacoEditor.editor)
+      setLeanMonaco(_leanMonaco)
 
-        // Add a `Paste` option to the context menu on mobile.
-        // Monaco does not support clipboard pasting as all browsers block it
-        // due to security reasons. Therefore we use a codeMirror editor overlay
-        // which features good mobile support (but no Lean support yet)
-        if (preferences.mobile) {
-          leanMonacoEditor.editor?.addAction({
-            id: "myPaste",
-            label: "Paste: open 'Plain Editor' for editing on mobile",
-            // keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_V],
-            contextMenuGroupId: "9_cutcopypaste",
-            run: (_editor) => {
-              setCodeMirror(true)
-            }
-          })
-        }
-
-        // // TODO: This was an approach to create a new definition provider, but it
-        // // wasn't that useful. I'll leave it here in connection with the TODO below for
-        // // reference.
-        // monaco.languages.registerDefinitionProvider('lean4', {
-        //   provideDefinition(model, position) {
-        //     const word = model.getWordAtPosition(position);
-        //     if (word) {
-        //       console.log(`[Lean4web] Providing definition for: ${word.word}`);
-        //       // Return the location of the definition
-        //       return [
-        //         {
-        //           uri: model.uri,
-        //           range: {startLineNumber: 0, startColumn: word.startColumn, endColumn: word.endColumn, endLineNumber: 0}, // Replace with actual definition range
-        //         },
-        //       ];
-        //     }
-        //     return null;
-        //   },
-        // });
-
-        // TODO: Implement Go-To-Definition better
-        // This approach only gives us the file on the server (plus line number) it wants
-        // to open, is there a better approach?
-        const editorService = (leanMonacoEditor.editor as any)?._codeEditorService
-        if (editorService) {
-          const openEditorBase = editorService.openCodeEditor.bind(editorService)
-          editorService.openCodeEditor = async (input: any, source: any) => {
-              const result = await openEditorBase(input, source)
-              if (result === null) {
-                // found this out with `console.debug(input)`:
-                // `resource.path` is the file go-to-def tries to open on the disk
-                // we try to create a doc-gen link from that. Could not extract the
-                // (fully-qualified) decalaration name... with that one could
-                // call `...${path}.html#${declaration}`
-                let path = input.resource.path.replace(
-                  new RegExp("^.*/(?:lean|\.lake/packages/[^/]+/)"), ""
-                ).replace(
-                  new RegExp("\.lean$"), ""
-                )
-
-                if (window.confirm(`Do you want to open the docs?\n\n${path} (line ${input.options.selection.startLineNumber})`)) {
-                  let newTab = window.open(`https://leanprover-community.github.io/mathlib4_docs/${path}.html`, "_blank")
-                  if (newTab) {
-                    newTab.focus()
-                  }
-                }
-              }
-              return null
-              // return result // always return the base result
+      // Add a `Paste` option to the context menu on mobile.
+      // Monaco does not support clipboard pasting as all browsers block it
+      // due to security reasons. Therefore we use a codeMirror editor overlay
+      // which features good mobile support (but no Lean support yet)
+      if (preferences.mobile) {
+        leanMonacoEditor.editor?.addAction({
+          id: "myPaste",
+          label: "Paste: open 'Plain Editor' for editing on mobile",
+          // keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_V],
+          contextMenuGroupId: "9_cutcopypaste",
+          run: (_editor) => {
+            setCodeMirror(true)
           }
-        }
-
-        // Keeping the `code` state up-to-date with the changes in the editor
-        leanMonacoEditor.editor?.onDidChangeModelContent(() => {
-          setCode(leanMonacoEditor.editor?.getModel()?.getValue()!)
         })
+      }
+
+      // // TODO: This was an approach to create a new definition provider, but it
+      // // wasn't that useful. I'll leave it here in connection with the TODO below for
+      // // reference.
+      // monaco.languages.registerDefinitionProvider('lean4', {
+      //   provideDefinition(model, position) {
+      //     const word = model.getWordAtPosition(position);
+      //     if (word) {
+      //       console.log(`[Lean4web] Providing definition for: ${word.word}`);
+      //       // Return the location of the definition
+      //       return [
+      //         {
+      //           uri: model.uri,
+      //           range: {startLineNumber: 0, startColumn: word.startColumn, endColumn: word.endColumn, endLineNumber: 0}, // Replace with actual definition range
+      //         },
+      //       ];
+      //     }
+      //     return null;
+      //   },
+      // });
+
+      // TODO: Implement Go-To-Definition better
+      // This approach only gives us the file on the server (plus line number) it wants
+      // to open, is there a better approach?
+      const editorService = (leanMonacoEditor.editor as any)?._codeEditorService
+      if (editorService) {
+        const openEditorBase = editorService.openCodeEditor.bind(editorService)
+        editorService.openCodeEditor = async (input: any, source: any) => {
+          const result = await openEditorBase(input, source)
+          if (result === null) {
+            // found this out with `console.debug(input)`:
+            // `resource.path` is the file go-to-def tries to open on the disk
+            // we try to create a doc-gen link from that. Could not extract the
+            // (fully-qualified) decalaration name... with that one could
+            // call `...${path}.html#${declaration}`
+            let path = input.resource.path.replace(
+              new RegExp("^.*/(?:lean|\.lake/packages/[^/]+/)"), ""
+            ).replace(
+              new RegExp("\.lean$"), ""
+            )
+
+            if (window.confirm(`Do you want to open the docs?\n\n${path} (line ${input.options.selection.startLineNumber})`)) {
+              let newTab = window.open(`https://leanprover-community.github.io/mathlib4_docs/${path}.html`, "_blank")
+              if (newTab) {
+                newTab.focus()
+              }
+            }
+          }
+          return null
+          // return result // always return the base result
+        }
+      }
+
+      // Keeping the `code` state up-to-date with the changes in the editor
+      leanMonacoEditor.editor?.onDidChangeModelContent(() => {
+        setCode(leanMonacoEditor.editor?.getModel()?.getValue()!)
+        setExploreMode(false)
+      })
     })()
     return () => {
       leanMonacoEditor.dispose()
@@ -249,7 +317,7 @@ function App() {
       setContent(_code)
     }
 
-    if (args.url) {setUrl(lookupUrl(decodeURIComponent(args.url)))}
+    if (args.url) { setUrl(lookupUrl(decodeURIComponent(args.url))) }
     if (args.project && args.project != project) {
       console.log(`[Lean4web] setting project to ${args.project}`)
       setProject(args.project)
@@ -262,18 +330,18 @@ function App() {
   // the editor is loaded, as the `useEffect` below only triggers when the `contentFromURL`
   // changes, otherwise it might overwrite local changes too often.
   useEffect(() => {
-    if (!editor || !url) {return}
+    if (!editor || !url) { return }
     console.debug(`[Lean4web] Loading from ${url}`)
     fetch(url)
-    .then((response) => response.text())
-    .then((code) => {
-      setCodeFromUrl(code)
-    })
-    .catch( err => {
-      let errorTxt = `ERROR: ${err.toString()}`
-      console.error(errorTxt)
-      setCodeFromUrl(errorTxt)
-    })
+      .then((response) => response.text())
+      .then((code) => {
+        setCodeFromUrl(code)
+      })
+      .catch(err => {
+        let errorTxt = `ERROR: ${err.toString()}`
+        console.error(errorTxt)
+        setCodeFromUrl(errorTxt)
+      })
   }, [url, editor])
 
   // Sets the editors content to the content from the loaded URL.
@@ -319,12 +387,12 @@ function App() {
       // const encodedCode = fixedEncodeURIComponent(code)
       // console.debug(`[Lean4web]: code length: ${encodedCode.length}, compressed: ${compressed.length}`)
       // if (compressed.length < encodedCode.length) {
-        args = {
-          project: _project,
-          url: null,
-          code: null,
-          codez: compressed
-        }
+      args = {
+        project: _project,
+        url: null,
+        code: null,
+        codez: compressed
+      }
       // } else {
       //   args = {
       //     project: _project,
@@ -344,7 +412,7 @@ function App() {
     history.replaceState(undefined, undefined!, formatArgs(args))
   }, [editor, project, code, codeFromUrl])
 
-  return <PreferencesContext.Provider value={{preferences, setPreferences}}>
+  return <PreferencesContext.Provider value={{ preferences, setPreferences }}>
     <div className="app monaco-editor">
       <nav>
         <LeanLogo />
@@ -358,9 +426,9 @@ function App() {
           restart={leanMonaco?.restart}
           codeMirror={codeMirror}
           setCodeMirror={setCodeMirror}
-          />
+        />
       </nav>
-      <Split className={`editor ${ dragging? 'dragging':''}`}
+      <Split className={`editor ${dragging ? 'dragging' : ''}`}
         gutter={(_index, _direction) => {
           const gutter = document.createElement('div')
           gutter.className = `gutter` // no `gutter-${direction}` as it might change
@@ -374,15 +442,16 @@ function App() {
             'margin-left': preferences.mobile ? 0 : `-${gutterSize}px`,
             'margin-top': preferences.mobile ? `-${gutterSize}px` : 0,
             'z-index': 0,
-          }}}
+          }
+        }}
         gutterSize={5}
         onDragStart={() => setDragging(true)} onDragEnd={() => setDragging(false)}
         sizes={preferences.mobile ? [50, 50] : [70, 30]}
         direction={preferences.mobile ? "vertical" : "horizontal"}
-        style={{flexDirection: preferences.mobile ? "column" : "row"}}>
+        style={{ flexDirection: preferences.mobile ? "column" : "row" }}>
         <div className='codeview-wrapper'
-          style={preferences.mobile ? {width : '100%'} : {height: '100%'}} >
-          { codeMirror &&
+          style={preferences.mobile ? { width: '100%' } : { height: '100%' }} >
+          {codeMirror &&
             <CodeMirror
               className="codeview plain"
               value={code}
@@ -394,15 +463,57 @@ function App() {
           }
           <div ref={editorRef} className={`codeview${codeMirror ? ' hidden' : ''}`} />
         </div>
-        <div ref={infoviewRef} className="vscode-light infoview"
-          style={preferences.mobile ? {width : '100%'} : {height: '100%'}} >
+        {!exploreMode && (
+          <div ref={infoviewRef} className="vscode-light infoview"
+            style={preferences.mobile ? { width: '100%' } : { height: '100%' }} >
             <p className={`editor-support-warning${codeMirror ? '' : ' hidden'}`} >
               You are in the plain text editor<br /><br />
-              Go back to the Monaco Editor (click <FontAwesomeIcon icon={faCode}/>)
+              Go back to the Monaco Editor (click <FontAwesomeIcon icon={faCode} />)
               for the infoview to update!
             </p>
-        </div>
+          </div>
+        )}
       </Split>
+
+
+      <div style={{
+        position: "absolute",
+        bottom: "20px",
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        gap: "1rem",
+      }}>
+        <button
+          onClick={goLeft}
+          style={{
+            fontSize: "1.5rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: "#e0e0e0",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.1)"
+          }}
+        >
+          ⬅️
+        </button>
+        <button
+          onClick={goRight}
+          style={{
+            fontSize: "1.5rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: "#e0e0e0",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.1)"
+          }}
+        >
+          ➡️
+        </button>
+      </div>
+
     </div>
   </PreferencesContext.Provider>
 
