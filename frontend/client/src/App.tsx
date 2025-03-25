@@ -39,8 +39,8 @@ function App() {
 
   const [exploreMode, setExploreMode] = useState(true)
 
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws"
-  const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
+  // const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+  // const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
   const socketRef = useRef<WebSocket | null>(null)
 
   const goLeft = () => {

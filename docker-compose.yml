@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "5000:5000"
     volumes:
@@ -12,7 +12,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
@@ -22,10 +22,3 @@ services:
     command: ["npm", "run", "dev"]
     depends_on:
       - backend
-      - lean
-
-  lean:
-    image: leanprovercommunity/lean:latest
-    ports:
-      - "8080:8080"
-    command: ["lean", "--server"]

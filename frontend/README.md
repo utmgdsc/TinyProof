@@ -2,8 +2,6 @@
 
 This folder hosts the frontend for Tinyproof. This is an adaptation of [Lean4Web](https://github.com/leanprover-community/lean4web)
 
-# Build Instructions
-
 ## Requirements
 
 Ensure you have Docker and ensure that Docker daemon/Desktop is running.
@@ -40,12 +38,12 @@ But, to do so:
 
 Install all required npm packages
 
-```
+```bash
 npm install
 ```
 
 Run the front-end server
 
-```
+```bash
 npm start
 ```

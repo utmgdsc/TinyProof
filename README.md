@@ -2,6 +2,8 @@
 
 ## Running the App
 
+Follow README in backend and frontend first. Then follow this README
+
 ### Development (with hot reload)
 
 To start both the frontend and backend in development mode (using `Dockerfile.dev` and hot reloading), ensure you have Docker Desktop downloaded and running on your machine and run:
@@ -29,22 +31,4 @@ and in another terminal, run
 cd frontend
 npm install
 npm run dev
-```
-
-```bash
-docker-compose -f up --build
-```
-
-## Useful Commands
-
-### Stop all running containers
-
-```bash
-docker-compose -f down
-```
-
-### Rebuild and start containers
-
-```bash
-docker-compose up --build
 ```
