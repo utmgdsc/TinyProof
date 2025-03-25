@@ -18,6 +18,15 @@ interface SolverProps {
   onProofStep?: (proof: string) => void;
 }
 
+/**
+ * Connects to the solver websocket and returns the proof steps and final proof
+ * @param url - The URL of the solver websocket
+ * @param onConnect - Runs when the websocket is connected
+ * @param onDisconnect - Runs when the websocket is disconnected
+ * @param onError - Runs when an error occurs
+ * @param onProofStep - Runs when a proof step is received
+ * @returns The proof steps and final proof
+ */
 export default function useSolver({
   url,
   onConnect,

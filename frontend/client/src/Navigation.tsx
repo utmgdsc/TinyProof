@@ -36,10 +36,9 @@ export const NavButton: FC<{
   onClick?: MouseEventHandler<HTMLAnchorElement>;
   href?: string;
 }> = ({ icon, iconElement, text, onClick = () => {}, href = null }) => {
-  // note: it seems that we can just leave the `target="_blank"` and it has no
-  // effect on links without a `href`. If not, add `if (href)` statement here...
   return (
     <a className="nav-link" onClick={onClick} href={href!} target="_blank">
+      {/* hamburger icon */}
       {iconElement ?? <FontAwesomeIcon icon={icon!} />}&nbsp;{text}
     </a>
   );
