@@ -37,7 +37,7 @@ function App() {
   const [proofs, setProofs] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
 
-  const [exploreMode, setExploreMode] = useState(true)
+  const [exploreMode, setExploreMode] = useState(false)
 
   // const protocol = window.location.protocol === "https:" ? "wss" : "ws"
   // const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
@@ -53,6 +53,10 @@ function App() {
     const newIndex = currentIndex === proofs.length - 1 ? 0 : currentIndex + 1
     setCurrentIndex(newIndex)
     setContent(proofs[newIndex])
+  }
+
+  const toggleExploreMode = () => {
+    setExploreMode(prev => !prev)
   }
 
   // Lean4monaco options
@@ -120,7 +124,6 @@ function App() {
         setContent(data.proofs[0])
       })
       .catch(console.error)
-    setExploreMode(false)
   }, [])
 
   // Load preferences from store in the beginning
@@ -212,9 +215,13 @@ function App() {
     var _leanMonaco = new LeanMonaco()
     var leanMonacoEditor = new LeanMonacoEditor()
 
-    // if (!exploreMode) {
+    if (!exploreMode) {
       _leanMonaco.setInfoviewElement(infoviewRef.current!)
-    // }
+    } else {
+      const dummy = document.createElement("div")
+      dummy.style.display = "none"
+      _leanMonaco.setInfoviewElement(dummy)
+    }
     ; (async () => {
       await _leanMonaco.start(options)
       await leanMonacoEditor.start(editorRef.current!, `/project/${project}.lean`, code)
@@ -293,14 +300,13 @@ function App() {
       // Keeping the `code` state up-to-date with the changes in the editor
       leanMonacoEditor.editor?.onDidChangeModelContent(() => {
         setCode(leanMonacoEditor.editor?.getModel()?.getValue()!)
-        setExploreMode(false)
       })
     })()
     return () => {
       leanMonacoEditor.dispose()
       _leanMonaco.dispose()
     }
-  }, [loaded, project, preferences, options, infoviewRef, editorRef])
+  }, [loaded, project, preferences, options, infoviewRef, editorRef, exploreMode])
 
   // Read the URL arguments once
   useEffect(() => {
@@ -463,16 +469,20 @@ function App() {
           }
           <div ref={editorRef} className={`codeview${codeMirror ? ' hidden' : ''}`} />
         </div>
-        {!exploreMode && (
-          <div ref={infoviewRef} className="vscode-light infoview"
-            style={preferences.mobile ? { width: '100%' } : { height: '100%' }} >
-            <p className={`editor-support-warning${codeMirror ? '' : ' hidden'}`} >
-              You are in the plain text editor<br /><br />
-              Go back to the Monaco Editor (click <FontAwesomeIcon icon={faCode} />)
-              for the infoview to update!
-            </p>
-          </div>
-        )}
+        <div
+          ref={infoviewRef}
+          className="vscode-light infoview"
+          style={{
+            display: exploreMode ? 'none' : undefined,
+            ...(preferences.mobile ? { width: '100%' } : { height: '100%' })
+          }}
+        >
+          <p className={`editor-support-warning${codeMirror ? '' : ' hidden'}`} >
+            You are in the plain text editor<br /><br />
+            Go back to the Monaco Editor (click <FontAwesomeIcon icon={faCode} />)
+            for the infoview to update!
+          </p>
+        </div>
       </Split>
 
 
@@ -513,7 +523,7 @@ function App() {
           ➡️
         </button>
         <button
-          onClick={() => setExploreMode(prev => !prev)}
+          onClick={toggleExploreMode}
           style={{
             marginLeft: "auto",
             marginRight: "1rem",
