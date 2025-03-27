@@ -5,22 +5,14 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      - ./backend:/app
-    command: ["python", "start.py", "--port", "5000", "--dev"]
+    environment:
+      - PORT=5000
 
   frontend:
-    platform: linux/arm64
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - PORT=3000
-    command: ["npm", "run", "dev"]
     depends_on:
-      - backend
+      - backend 

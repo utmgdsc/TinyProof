@@ -1,7 +1,5 @@
 from argparse import ArgumentParser, Namespace
 import uvicorn
-import os
-import subprocess
 
 # Importing app here makes the syntax cleaner as it will be picked up by refactors
 from app import app
