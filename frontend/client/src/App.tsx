@@ -120,7 +120,7 @@ function App() {
   }, [code])
 
   useEffect(() => { // MOCK PROOFS
-    fetch("http://localhost:5000/proofs")
+    fetch("http://localhost:5050/proofs")
       .then((res) => res.json())
       .then((data) => {
         setProofs(data.proofs)

@@ -9,19 +9,13 @@ Follow README in backend and frontend first. Then follow this README
 To start both the frontend and backend, ensure you have Docker Desktop downloaded and running on your machine and run:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 if you want to rebuild the images everytime to ensure latest images. If not, just run:
 
 ```bash
 docker compose up
-```
-
-If using an ARM64 machine, add the following line below "frontend:" in the docker-compose.yml:
-
-```compose
-platform: linux/arm64
 ```
 
 To rebuild clean, run
@@ -40,7 +34,7 @@ If you want to start the backend and frontend without using Docker (Lean Server 
 
 ```bash
 cd backend
-python start.py --port 5000 --dev
+python start.py --port 5050 --dev
 ```
 
 and in another terminal, run

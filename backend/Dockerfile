@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Default port
-ENV PORT=5000
+ENV PORT=5050
 
 # Expose the port the app runs on
 EXPOSE ${PORT}
