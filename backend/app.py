@@ -3,6 +3,7 @@ import asyncio
 import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
 
 app = FastAPI(dependencies=[])
 
@@ -19,15 +20,25 @@ app.add_middleware(
 async def root():
     return {"message": "World"}
 
-mock_proofs = [
-    "theorem add_zero (n : ℕ) : n + 0 = n :=\nbegin\n  rw add_zero\nend",
-    "theorem zero_add (n : ℕ) : 0 + n = n :=\nbegin\n  rw zero_add\nend",
-    "theorem and_comm (a b : Prop) : a ∧ b ↔ b ∧ a :=\nbegin\n  exact and_comm a b\nend",
-]
-
 @app.get("/proofs")
 async def get_proofs():
-    return {"proofs": mock_proofs}
+    lean_dir = Path("./")
+    if not lean_dir.exists():
+        return {"proofs": ["-- Error: Lean proof directory not found."]}
+
+    lean_files = list(lean_dir.glob("*.lean"))
+    if not lean_files:
+        return {"proofs": ["-- Error: No Lean files found."]}
+
+    proofs = []
+    for file in lean_files:
+        try:
+            content = file.read_text()
+            proofs.append(content)
+        except Exception as e:
+            proofs.append(f"-- Error reading file {file.name}: {e}")
+
+    return {"proofs": proofs}
 
 
 @app.websocket("/ws")

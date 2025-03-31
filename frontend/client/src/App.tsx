@@ -37,22 +37,28 @@ function App() {
   const [proofs, setProofs] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
 
-  const [exploreMode, setExploreMode] = useState(true)
+  const [exploreMode, setExploreMode] = useState(false)
 
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws"
-  const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
+  // const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+  // const socket = new WebSocket(`${protocol}://${window.location.host}/ws`)
   const socketRef = useRef<WebSocket | null>(null)
 
   const goLeft = () => {
+    if (proofs.length === 0) return
     const newIndex = currentIndex === 0 ? proofs.length - 1 : currentIndex - 1
     setCurrentIndex(newIndex)
     setContent(proofs[newIndex])
   }
 
   const goRight = () => {
+    if (proofs.length === 0) return
     const newIndex = currentIndex === proofs.length - 1 ? 0 : currentIndex + 1
     setCurrentIndex(newIndex)
     setContent(proofs[newIndex])
+  }
+
+  const toggleExploreMode = () => {
+    setExploreMode(prev => !prev)
   }
 
   // Lean4monaco options
@@ -75,27 +81,33 @@ function App() {
 
   /** Monaco editor requires the code to be set manually. */
   function setContent(code: string) {
-    editor?.getModel()?.setValue(code)
+    const model = editor?.getModel()
+    if (model) {
+      monaco.editor.setModelLanguage(model, 'lean4')
+      model.setValue(code)
+    } else {
+      console.warn('Editor model is not ready yet.')
+    }
     setCode(code)
   }
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     socketRef.current = new WebSocket(`${protocol}://${window.location.host}/ws`)
-  
+
     socketRef.current.onopen = () => {
       console.log("[WebSocket] Connected")
     };
-  
+
     socketRef.current.onmessage = (event) => {
       const proofAttempt = event.data;
       setContent(proofAttempt)
     };
-  
+
     socketRef.current.onclose = () => {
       console.log("[WebSocket] Disconnected")
     };
-  
+
     return () => {
       socketRef.current?.close()
     };
@@ -108,20 +120,25 @@ function App() {
         console.log("[WebSocket] Sent code:", code)
       }
     }, 500) // waits 500ms after last change
-  
+
     return () => clearTimeout(timeout)
   }, [code])
 
-  useEffect(() => {
-    fetch("http://localhost:5000/proofs")
+  useEffect(() => { // MOCK PROOFS
+    fetch("http://localhost:5050/proofs")
       .then((res) => res.json())
       .then((data) => {
         setProofs(data.proofs)
-        setContent(data.proofs[0])
+        // setContent(data.proofs[0])  COMMENTED OUT FOR TESTING SYNTAX HIGHLIGHTING
       })
       .catch(console.error)
-    setExploreMode(true)
   }, [])
+
+  useEffect(() => {
+    if (editor && proofs.length > 0) {
+      setContent(proofs[currentIndex])
+    }
+  }, [editor, proofs])
 
   // Load preferences from store in the beginning
   useEffect(() => {
@@ -175,6 +192,15 @@ function App() {
     }
   }, [width, loaded])
 
+  useEffect(() => {
+    const handleResize = () => {
+      editor?.layout()
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [editor])
+
   // Update LeanMonaco options when preferences are loaded or change
   useEffect(() => {
     var socketUrl = ((window.location.protocol === "https:") ? "wss://" : "ws://") +
@@ -214,6 +240,10 @@ function App() {
 
     if (!exploreMode) {
       _leanMonaco.setInfoviewElement(infoviewRef.current!)
+    } else {
+      const dummy = document.createElement("div")
+      dummy.style.display = "none"
+      _leanMonaco.setInfoviewElement(dummy)
     }
     ; (async () => {
       await _leanMonaco.start(options)
@@ -221,6 +251,25 @@ function App() {
 
       setEditor(leanMonacoEditor.editor)
       setLeanMonaco(_leanMonaco)
+
+      const model = leanMonacoEditor.editor.getModel()
+      if (model) {
+        monaco.editor.setModelLanguage(model, 'lean4')
+      }
+
+      console.log("Language is:", model?.getLanguageId())
+
+      useEffect(() => {
+        if (!editorRef.current || !editor) return
+
+        const observer = new ResizeObserver(() => {
+          editor.layout()
+        })
+
+        observer.observe(editorRef.current)
+
+        return () => observer.disconnect()
+      }, [editor])
 
       // Add a `Paste` option to the context menu on mobile.
       // Monaco does not support clipboard pasting as all browsers block it
@@ -293,14 +342,14 @@ function App() {
       // Keeping the `code` state up-to-date with the changes in the editor
       leanMonacoEditor.editor?.onDidChangeModelContent(() => {
         setCode(leanMonacoEditor.editor?.getModel()?.getValue()!)
-        setExploreMode(false)
+        console.log(editor?.getModel()?.getLanguageId())
       })
     })()
     return () => {
       leanMonacoEditor.dispose()
       _leanMonaco.dispose()
     }
-  }, [loaded, project, preferences, options, infoviewRef, editorRef])
+  }, [loaded, project, preferences, options, infoviewRef, editorRef, exploreMode])
 
   // Read the URL arguments once
   useEffect(() => {
@@ -413,7 +462,7 @@ function App() {
   }, [editor, project, code, codeFromUrl])
 
   return <PreferencesContext.Provider value={{ preferences, setPreferences }}>
-    <div className="app monaco-editor">
+    <div className="app monaco-editor" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <nav>
         <LeanLogo />
         <Menu
@@ -428,61 +477,73 @@ function App() {
           setCodeMirror={setCodeMirror}
         />
       </nav>
-      <Split className={`editor ${dragging ? 'dragging' : ''}`}
-        gutter={(_index, _direction) => {
-          const gutter = document.createElement('div')
-          gutter.className = `gutter` // no `gutter-${direction}` as it might change
-          return gutter
-        }}
-        gutterStyle={(_dimension, gutterSize, _index) => {
-          return {
-            'width': preferences.mobile ? '100%' : `${gutterSize}px`,
-            'height': preferences.mobile ? `${gutterSize}px` : '100%',
-            'cursor': preferences.mobile ? 'row-resize' : 'col-resize',
-            'margin-left': preferences.mobile ? 0 : `-${gutterSize}px`,
-            'margin-top': preferences.mobile ? `-${gutterSize}px` : 0,
-            'z-index': 0,
-          }
-        }}
-        gutterSize={5}
-        onDragStart={() => setDragging(true)} onDragEnd={() => setDragging(false)}
-        sizes={preferences.mobile ? [50, 50] : [70, 30]}
-        direction={preferences.mobile ? "vertical" : "horizontal"}
-        style={{ flexDirection: preferences.mobile ? "column" : "row" }}>
-        <div className='codeview-wrapper'
-          style={preferences.mobile ? { width: '100%' } : { height: '100%' }} >
-          {codeMirror &&
-            <CodeMirror
-              className="codeview plain"
-              value={code}
-              extensions={[EditorView.lineWrapping]}
-              height='100%'
-              maxHeight='100%'
-              theme={lightThemes.includes(preferences.theme) ? 'light' : 'dark'}
-              onChange={setContent} />
-          }
-          <div ref={editorRef} className={`codeview${codeMirror ? ' hidden' : ''}`} />
-        </div>
-        {!exploreMode && (
-          <div ref={infoviewRef} className="vscode-light infoview"
+      <div style={{ flex: 1 }}>
+        <Split className={`editor ${dragging ? 'dragging' : ''}`}
+          gutter={(_index, _direction) => {
+            const gutter = document.createElement('div')
+            gutter.className = `gutter` // no `gutter-${direction}` as it might change
+            return gutter
+          }}
+          gutterStyle={(_dimension, gutterSize, _index) => {
+            return {
+              'width': preferences.mobile ? '100%' : `${gutterSize}px`,
+              'height': preferences.mobile ? `${gutterSize}px` : '100%',
+              'cursor': preferences.mobile ? 'row-resize' : 'col-resize',
+              'margin-left': preferences.mobile ? 0 : `-${gutterSize}px`,
+              'margin-top': preferences.mobile ? `-${gutterSize}px` : 0,
+              'z-index': 0,
+            }
+          }}
+          gutterSize={5}
+          onDragStart={() => setDragging(true)} onDragEnd={() => setDragging(false)}
+          sizes={preferences.mobile ? [50, 50] : [70, 30]}
+          direction={preferences.mobile ? "vertical" : "horizontal"}
+          style={{ flexDirection: preferences.mobile ? "column" : "row", height: '100%' }}>
+          <div className='codeview-wrapper'
             style={preferences.mobile ? { width: '100%' } : { height: '100%' }} >
+            {codeMirror &&
+              <CodeMirror
+                className="codeview plain"
+                value={code}
+                extensions={[EditorView.lineWrapping]}
+                height='100%'
+                maxHeight='100%'
+                theme={lightThemes.includes(preferences.theme) ? 'light' : 'dark'}
+                onChange={setContent} />
+            }
+            <div ref={editorRef} className={`codeview${codeMirror ? ' hidden' : ''}`} style={{
+              flex: 1,
+              width: '100%',
+              overflow: 'hidden',
+              minHeight: 0
+            }} />
+          </div>
+          <div
+            ref={infoviewRef}
+            className="vscode-light infoview"
+            style={{
+              display: exploreMode ? 'none' : undefined,
+              ...(preferences.mobile ? { width: '100%' } : { height: '100%' })
+            }}
+          >
             <p className={`editor-support-warning${codeMirror ? '' : ' hidden'}`} >
               You are in the plain text editor<br /><br />
               Go back to the Monaco Editor (click <FontAwesomeIcon icon={faCode} />)
               for the infoview to update!
             </p>
           </div>
-        )}
-      </Split>
+        </Split>
+      </div>
 
 
+      {/* Fixed bottom button bar */}
       <div style={{
-        position: "absolute",
-        bottom: "20px",
-        width: "100%",
+        padding: "0.75rem",
         display: "flex",
         justifyContent: "center",
         gap: "1rem",
+        borderTop: "1px solid #ddd",
+        background: "#f9f9f9"
       }}>
         <button
           onClick={goLeft}
@@ -511,6 +572,22 @@ function App() {
           }}
         >
           ➡️
+        </button>
+        <button
+          onClick={toggleExploreMode}
+          style={{
+            marginLeft: "auto",
+            padding: "0.5rem 1rem",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: exploreMode ? "#f0c040" : "#4caf50",
+            color: "white",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
+          }}
+        >
+          {exploreMode ? "Exit Explore Mode" : "Enter Explore Mode"}
         </button>
       </div>
 
