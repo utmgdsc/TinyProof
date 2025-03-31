@@ -201,23 +201,22 @@ function App() {
     return () => window.removeEventListener('resize', handleResize)
   }, [editor])
 
-  // Update LeanMonaco options when preferences are loaded or change
-  useEffect(() => {
-    var socketUrl = ((window.location.protocol === "https:") ? "wss://" : "ws://") +
+  useEffect(() => { // ATTEMPTED TO FIX GREEN BAR
+    if (exploreMode) {
+      console.log("[Lean4web] Explore mode enabled: skipping LeanMonaco startup.")
+      return // Don't set options or start LeanMonaco when in explore mode
+    }
+
+    const socketUrl = ((window.location.protocol === "https:") ? "wss://" : "ws://") +
       window.location.host + "/websocket/" + project
     console.log(`[Lean4web] socket url: ${socketUrl}`)
-    var _options: LeanMonacoOptions = {
+
+    const _options: LeanMonacoOptions = {
       websocket: { url: socketUrl },
-      // Restrict monaco's extend (e.g. context menu) to the editor itself
       htmlElement: editorRef.current ?? undefined,
       vscode: {
-        /* To add settings here, you can open your settings in VSCode (Ctrl+,), search
-         * for the desired setting, select "Copy Setting as JSON" from the "More Actions"
-         * menu next to the selected setting, and paste the copied string here.
-         */
         "workbench.colorTheme": preferences.theme,
         "editor.tabSize": 2,
-        // "editor.rulers": [100],
         "editor.lightbulb.enabled": "on",
         "editor.wordWrap": preferences.wordWrap ? "on" : "off",
         "editor.wrappingStrategy": "advanced",
@@ -227,8 +226,15 @@ function App() {
         "lean4.input.leader": preferences.abbreviationCharacter
       }
     }
+
     setOptions(_options)
-  }, [editorRef, project, preferences])
+
+    // Optionally trigger a restart if LeanMonaco is already running
+    if (leanMonaco?.restart) {
+      console.log("[Lean4web] Restarting LeanMonaco due to option change.")
+      leanMonaco.restart()
+    }
+  }, [editorRef, project, preferences, exploreMode, leanMonaco])
 
   // Setting up the editor and infoview
   useEffect(() => {
