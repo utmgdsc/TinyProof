@@ -81,9 +81,14 @@ function App() {
 
   /** Monaco editor requires the code to be set manually. */
   function setContent(code: string) {
-    editor?.getModel()?.setValue(code)
+    const model = editor?.getModel()
+    if (model) {
+      monaco.editor.setModelLanguage(model, 'lean4')
+      model.setValue(code)
+    } else {
+      console.warn('Editor model is not ready yet.')
+    }
     setCode(code)
-    monaco.editor.setModelLanguage(editor?.getModel()!, 'lean4')
   }
 
   useEffect(() => {
@@ -124,7 +129,7 @@ function App() {
       .then((res) => res.json())
       .then((data) => {
         setProofs(data.proofs)
-        setContent(data.proofs[0])
+        // setContent(data.proofs[0])  COMMENTED OUT FOR TESTING SYNTAX HIGHLIGHTING
       })
       .catch(console.error)
   }, [])
@@ -246,6 +251,13 @@ function App() {
 
       setEditor(leanMonacoEditor.editor)
       setLeanMonaco(_leanMonaco)
+
+      const model = leanMonacoEditor.editor.getModel()
+      if (model) {
+        monaco.editor.setModelLanguage(model, 'lean4')
+      }
+
+      console.log("Language is:", model?.getLanguageId())
 
       useEffect(() => {
         if (!editorRef.current || !editor) return
