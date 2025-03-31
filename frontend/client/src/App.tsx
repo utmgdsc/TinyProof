@@ -465,6 +465,35 @@ function App() {
     <div className="app monaco-editor" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <nav>
         <LeanLogo />
+
+        {/* Dark/light theme toggle */}
+        <button
+          onClick={() => {
+            const newTheme = preferences.theme === "Visual Studio Dark"
+              ? "Visual Studio Light"
+              : "Visual Studio Dark"
+            setPreferences({ ...preferences, theme: newTheme })
+            localStorage.setItem("theme", newTheme) // Persist it
+
+            setTimeout(() => {
+              leanMonaco?.restart?.()
+            }, 100)
+          }}
+          style={{
+            marginLeft: "1rem",
+            padding: "0.5rem 1rem",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: "#333",
+            color: "#fff",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
+          }}
+        >
+          Toggle Theme
+        </button>
+
         <Menu
           code={code}
           setContent={setContent}
@@ -520,7 +549,7 @@ function App() {
           </div>
           <div
             ref={infoviewRef}
-            className="vscode-light infoview"
+            className={`${lightThemes.includes(preferences.theme) ? 'vscode-light' : 'vscode-dark'} infoview`}
             style={{
               display: exploreMode ? 'none' : undefined,
               ...(preferences.mobile ? { width: '100%' } : { height: '100%' })
