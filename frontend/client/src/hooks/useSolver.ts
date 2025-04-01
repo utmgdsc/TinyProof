@@ -1,5 +1,5 @@
 // Claude 3.5 Sonnet was used to help write this code.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface SolverProps {
   // The URL of the solver websocket
@@ -25,7 +25,7 @@ interface SolverProps {
  * @param onDisconnect - Runs when the websocket is disconnected
  * @param onError - Runs when an error occurs
  * @param onProofStep - Runs when a proof step is received
- * @returns The proof steps and final proof
+ * @returns The proof steps, final proof, connection state, and start function
  */
 export default function useSolver({
   url,
@@ -37,13 +37,30 @@ export default function useSolver({
   const [proofSteps, setProofSteps] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [finalProof, setFinalProof] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
+  const start = () => {
+    // Clean up existing connection if any
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    // Reset states
+    setProofSteps([]);
+    setFinalProof(null);
+    setIsConnected(false);
+    setGenerating(false);
+
     // Create WebSocket connection
     const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    console.log("Attempting to connect to solver websocket");
 
     ws.onopen = () => {
       setIsConnected(true);
+      setGenerating(true);
       console.log("Connected to solver websocket");
       onConnect?.();
     };
@@ -56,8 +73,8 @@ export default function useSolver({
 
       // Check if this is the final correct proof
       if (proof.includes("PROOF_COMPLETE")) {
-        // You can adjust this condition
         setFinalProof(proof);
+        setGenerating(false);
         ws.close();
       }
 
@@ -66,24 +83,33 @@ export default function useSolver({
 
     ws.onclose = () => {
       setIsConnected(false);
+      setGenerating(false);
       console.log("Disconnected from solver websocket");
       onDisconnect?.();
     };
 
     ws.onerror = (event) => {
       console.error("WebSocket error:", event);
+      setGenerating(false);
       onError?.(event);
     };
+  };
 
-    // Cleanup on unmount
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      ws.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
-  }, [url, onConnect, onDisconnect, onError, onProofStep]);
+  }, []);
 
   return {
     proofSteps,
     isConnected,
     finalProof,
+    generating,
+    start,
+    currentStep: proofSteps.length,
   };
 }
