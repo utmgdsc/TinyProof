@@ -50,12 +50,12 @@ def count_leading_whitespace(s):
 # TODO :: support adding mutiple goals/errors
 def addGoal(ctx, goal):
   # note: line numbers start at 1
-  whitespace = 1
+  whitespace = 2
   out = ctx + "\n" + whitespace * " " + "/-\n"
   lines = goal.split("\n")
   for line in lines:
-    out += whitespace * " " + line + "\n"
-  out += whitespace * " " + "-/"
+    out += (whitespace + 1) * " " + line + "\n"
+  out += (whitespace + 1) * " " + "-/"
   return out
 
 HOME_DIR = os.path.expanduser('~')
@@ -102,8 +102,9 @@ while True:
     if not "goals" in output:
        continue
     goals = output["goals"]
+    break
   
-  temp = "\n".join(lines[:index])
+  temp = "\n".join(lines[:index + 1])
 
   print(prompt)
   print(temp)
