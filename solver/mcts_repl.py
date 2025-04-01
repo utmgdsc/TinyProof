@@ -88,28 +88,30 @@ theorem putnam_1964_a4 (u : ℕ → ℤ) (boundedu : ∃ B T : ℤ, ∀ n : ℕ,
 prompt = "import Mathlib\n\n" + thm
 proofState = json.loads(send_json_command({ "cmd": prompt + " sorry"}))["sorries"][0]["proofState"]
 while True:
-  temp = generate_response(quant_model, quant_tokenizer, prompt)
-  # Create a proper JSON command for the Lake REPL
-  repl_command = { "tactic" : "(\n" + temp[len(prompt) + 1:] + "\n)", "proofState" : proofState }
+  temp = generate_response(quant_model, quant_tokenizer, prompt)[len(prompt):]
+  lines = temp.split("\n")
+
+  goals = None
+
+  for index in range(len(lines)):
+    repl_command = { "tactic" : "(\n" + "\n".join(lines[:index + 1]) + "\n)", "proofState" : proofState }
+    cmd_out = send_json_command(repl_command)
+    output = json.loads(cmd_out)
+    # print("line: ", lines[:index + 1])
+    # print("out: ", output)
+    if not "goals" in output:
+       continue
+    goals = output["goals"]
+  
+  temp = "\n".join(lines[:index])
 
   print(prompt)
+  print(temp)
 
-  cmd_out = send_json_command(repl_command)
-
-  print("cmd", repl_command)
-
-  print("cmd out: ", cmd_out)
-
-  output = json.loads(cmd_out)
-  if not "goals" in output:
+  if goals is None:
      continue
   
-  proofState = output["proofState"]
-  print(output)
-  goals = output["goals"]
   if len(goals) == 0:
      break
-#   if messages is None:
-#     exit()
-  prompt = addGoal(temp, goals[0])
-  # print("Stderr:", process.stderr)
+
+  prompt = addGoal(prompt + temp, goals[0])
