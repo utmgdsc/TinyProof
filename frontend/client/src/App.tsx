@@ -685,9 +685,13 @@ function App() {
             display: "flex",
             justifyContent: "center",
             gap: "1rem",
-            borderTop: "1px solid #ddd",
-            background: "#f9f9f9",
+            borderTop: "1px solid grey",
           }}
+          className={`${
+            lightThemes.includes(preferences.theme)
+              ? "vscode-light"
+              : "vscode-dark"
+          } infoview`}
         >
           <button
             onClick={goLeft}
