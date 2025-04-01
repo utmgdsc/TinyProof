@@ -45,11 +45,11 @@ async def get_proofs():
 
 
 PROOF_STATES: list[str] = [
-    "Proof Step 1",
-    "Proof Step 2",
-    "Proof Step 3",
-    "Proof Step 4",
-    "Proof Step 5",
+    "Proof State 1",
+    "Proof State 2",
+    "Proof State 3",
+    "Proof State 4",
+    "Proof State 5",
 ]
 
 
