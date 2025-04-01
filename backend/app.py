@@ -1,6 +1,7 @@
 from argparse import ArgumentParser, Namespace
 import asyncio
 import logging
+import random
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -16,9 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 async def root():
     return {"message": "World"}
+
 
 @app.get("/proofs")
 async def get_proofs():
@@ -41,6 +44,15 @@ async def get_proofs():
     return {"proofs": proofs}
 
 
+PROOF_STATES: list[str] = [
+    "Proof State 1",
+    "Proof State 2",
+    "Proof State 3",
+    "Proof State 4",
+    "Proof State 5",
+]
+
+
 @app.websocket("/ws")
 async def proof_solver_websocket(websocket: WebSocket):
     logging.info("[WebSocket] connection attempt")
@@ -54,18 +66,16 @@ async def proof_solver_websocket(websocket: WebSocket):
     logging.info("[WebSocket] connection established")
 
     try:
-        while True:
-            # Step 1: Receive Lean statement from client
-            data = await websocket.receive_text()
-            logging.info(f"Received Lean statement: {data}")
+        # Send each proof state
+        for proof_state in PROOF_STATES:
+            # wait for a random time
+            await asyncio.sleep(random.uniform(2, 4.5))
+            await websocket.send_text(proof_state)
 
-            # Step 2: CALL MODEL HERE
-            # In real use, send `data` to model
-            # For now, just mock a proof result
-            generated_proof = f"theorem result : {data} :=\nbegin\n  exact proof_goes_here\nend"
+        # Send completion message
+        await asyncio.sleep(random.uniform(2, 4.5))
+        await websocket.send_text("PROOF_COMPLETE")
 
-            # Step 3: Send proof back to frontend
-            await websocket.send_text(generated_proof)
     except WebSocketDisconnect:
         logging.info("[WebSocket] disconnected")
     except Exception as e:
