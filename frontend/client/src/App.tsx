@@ -229,12 +229,7 @@ function App() {
 
     setOptions(_options)
 
-    // Optionally trigger a restart if LeanMonaco is already running
-    if (leanMonaco?.restart) {
-      console.log("[Lean4web] Restarting LeanMonaco due to option change.")
-      leanMonaco.restart()
-    }
-  }, [editorRef, project, preferences, exploreMode, leanMonaco])
+  }, [editorRef, project, preferences, exploreMode])
 
   // Setting up the editor and infoview
   useEffect(() => {
@@ -577,9 +572,8 @@ function App() {
         display: "flex",
         justifyContent: "center",
         gap: "1rem",
-        borderTop: "1px solid #ddd",
-        background: "#f9f9f9"
-      }}>
+        borderTop: "1px solid grey",
+      }} className={`${lightThemes.includes(preferences.theme) ? 'vscode-light' : 'vscode-dark'} infoview`}>
         <button
           onClick={goLeft}
           style={{
