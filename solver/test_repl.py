@@ -2,6 +2,7 @@ import os
 import subprocess
 import json
 import time
+import sys
 
 HOME_DIR = os.path.expanduser('~')
 DEFAULT_LAKE_PATH = f'{HOME_DIR}/.elan/bin/lake'
@@ -16,7 +17,7 @@ process = subprocess.Popen(
         text=True,
         bufsize=1,
         env=os.environ,  # Inherit environment variables
-        preexec_fn=os.setsid,
+        preexec_fn=os.setsid if sys.platform != 'win32' else None,
     )
 
 def send_json_command(command):
@@ -35,13 +36,20 @@ def send_json_command(command):
     
     return "\n".join(output_lines)
 
-repl_command = { "cmd": "theorem womp (a b c : Nat) : (a + b) + c = c + a + b := by sorry" }
+def getLastTacticNode(infoTree):
+    curr = infoTree
+    while len(curr["children"]) != 0:
+        curr = curr["children"][-1]
+    return curr
+
+def getErrors(msgs):
+    return list(filter(lambda o: o["severity"] == "error", msgs))
+
+repl_command = { "cmd": "theorem womp (a b c : Nat) : (a + b) + c = c + a + b := by ", "infotree": "tactics" }
 
 stdout = send_json_command(repl_command)
-print(f"stdout: {stdout}")
-
-repl_command = { "tactic": "(\n rw [Nat.add_comm]\n rw [<- Nat.add_assoc])", "proofState": 0 }
-json_input = json.dumps(repl_command)
-
-stdout = send_json_command(repl_command)
-print(f"stdout: {stdout}")
+# print(f"stdout: {stdout}")
+output = json.loads(stdout)
+# print(output)
+print(getLastTacticNode(output["infotree"][0]))
+print(getErrors(output["messages"]))
