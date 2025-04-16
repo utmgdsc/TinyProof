@@ -23,6 +23,15 @@ def addGoal(ctx, pos, goal):
   out += whitespace * " " + "-/"
   return out
 
+def getLastTacticNode(infoTree):
+    curr = infoTree
+    while len(curr["children"]) != 0:
+        curr = curr["children"][-1]
+    return curr
+
+def getErrors(msgs):
+    return list(filter(lambda o: o["severity"] == "error", msgs))
+
 HOME_DIR = os.path.expanduser('~')
 DEFAULT_LAKE_PATH = f'{HOME_DIR}/.elan/bin/lake'
 DEFAULT_LEAN_WORKSPACE = 'TestLean'
@@ -31,7 +40,7 @@ prompt = "example (a b c : Nat): c + a + b = a + (b + c) := by"
 while True:
   temp = generate(prompt)
   # Create a proper JSON command for the Lake REPL
-  repl_command = { "cmd" : temp }
+  repl_command = { "cmd" : temp, "infotree": "tactics" }
 
   print(prompt)
 
@@ -49,11 +58,12 @@ while True:
   )
 
   print("stderr:", process.stderr)
-  print("stdout:", process.stdout)
+  # print("stdout:", process.stdout)
   output = json.loads(process.stdout)
-  print(output)
+  # print(output)
   messages = output.get("messages")
-  if messages is None:
-    exit()
-  prompt = addGoal(temp, messages[0]["endPos"] or messages[0]["pos"], messages[0]["data"])
+  if messages is None or len(getErrors(messages)) == 0:
+    break
+  node = getLastTacticNode(output["infotree"][0])
+  prompt = addGoal(temp, node['node']['stx']['range']['finish'], node['node']['goalsBefore'][0])
   # print("Stderr:", process.stderr)
