@@ -6,6 +6,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 from datasets import load_dataset
 
+import sys
+
 device = torch.device("cuda")
 
 model_path = "deepseek-ai/DeepSeek-Prover-V1.5-RL"
@@ -25,11 +27,40 @@ def generate_response(model, tokenizer, text):
     inputs = tokenizer(text, return_tensors="pt").to(device)
     with torch.no_grad():
         output = model.generate(**inputs, max_length=512)
-    
-    return tokenizer.decode(output[0], skip_special_tokens=True).split("```")[1]
+
+    decoded_output = tokenizer.decode(output[0], skip_special_tokens=True)
+
+    try:
+        # Find the part after ```lean4\n
+        start_marker = "```lean4\n"
+        code_start_index = decoded_output.index(start_marker) + len(start_marker)
+        # Find the closing ``` after the start marker
+        code_end_index = decoded_output.index("```", code_start_index)
+        extracted_code = decoded_output[code_start_index:code_end_index].strip() # Use strip()
+        return extracted_code
+    except ValueError:
+        print("Error: Could not extract code block from model output.")
+        return ""
+
 
 def count_leading_whitespace(s):
     return len(s) - len(s.lstrip())
+
+def send_json_command(command):
+  """Send JSON command and read response from subprocess."""
+  json_input = json.dumps(command, ensure_ascii=False) + "\n\n"
+  
+  process.stdin.write(json_input)
+  process.stdin.flush()  # Ensure input is sent
+      
+  output_lines = []
+  while True:
+    line = process.stdout.readline().strip()
+    # print("line: ", line)
+    if not line:  # Stop reading when there's no more output
+        break
+    output_lines.append(line)
+  return "\n".join(output_lines)
 
 # TODO :: support adding mutiple goals/errors
 def addGoal(ctx, pos, goal):
@@ -55,32 +86,35 @@ HOME_DIR = os.path.expanduser('~')
 DEFAULT_LAKE_PATH = f'{HOME_DIR}/.elan/bin/lake'
 DEFAULT_LEAN_WORKSPACE = 'TestLean'
 
-prompt = "import Mathlib\n\ntheorem womp {α : Type} (r s t : Set α) : r ⊆ s → s ⊆ t → r ⊆ t := by"
+process = subprocess.Popen(
+  [DEFAULT_LAKE_PATH, "exe", "repl"],  # Replace with your target executable
+  stdin=subprocess.PIPE,
+  stdout=subprocess.PIPE,
+  stderr=subprocess.PIPE,
+  cwd="TestLean",
+  text=True,
+  bufsize=1,
+  env=os.environ,  # Inherit environment variables
+  preexec_fn=os.setsid if sys.platform != 'win32' else None,
+)
+
+prompt = "import Mathlib\n\ntheorem womp (a b c: Nat) : a + b + c = c + (b + a) := by"
+
+
 while True:
   temp = generate_response(quant_model, quant_tokenizer, prompt)
+  print(temp)
   # Create a proper JSON command for the Lake REPL
-  repl_command = { "cmd" : temp }
+  repl_command = { "cmd" : temp, "infotree": "tactics"  }
 
-  print(prompt)
+  stdout = send_json_command(repl_command)
+  # print("stdout:", stdout)
+  # print("type of dogs:", type(stdout))
 
-  # Convert the command to JSON string
-  json_input = json.dumps(repl_command)
+  output = json.loads(stdout)
 
-  # Run the Lake REPL and pipe the JSON input directly
-  process = subprocess.run(
-      [DEFAULT_LAKE_PATH, "exe", 'repl'],
-      input=json_input,
-      capture_output=True,
-      text=True,
-      cwd=DEFAULT_LEAN_WORKSPACE,
-      timeout=300
-  )
 
-  print("stderr:", process.stderr)
-  print("stdout:", process.stdout)
-  output = json.loads(process.stdout)
-  print(output)
-  messages = list(filter(lambda x: x["severity"] == "error", output.get("messages")))
+  messages = output.get("messages")
   if messages is None or len(getErrors(messages)) == 0:
     break
   node = getLastTacticNode(output["infotree"][0])
