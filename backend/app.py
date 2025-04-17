@@ -1,10 +1,10 @@
-from argparse import ArgumentParser, Namespace
 import asyncio
 import logging
-import random
+from random import randint
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
+
+from solver.mcts_test import do_work
 
 app = FastAPI(dependencies=[])
 
@@ -23,38 +23,11 @@ async def root():
     return {"message": "World"}
 
 
-@app.get("/proofs")
-async def get_proofs():
-    lean_dir = Path("./")
-    if not lean_dir.exists():
-        return {"proofs": ["-- Error: Lean proof directory not found."]}
-
-    lean_files = list(lean_dir.glob("*.lean"))
-    if not lean_files:
-        return {"proofs": ["-- Error: No Lean files found."]}
-
-    proofs = []
-    for file in lean_files:
-        try:
-            content = file.read_text()
-            proofs.append(content)
-        except Exception as e:
-            proofs.append(f"-- Error reading file {file.name}: {e}")
-
-    return {"proofs": proofs}
-
-
-PROOF_STATES: list[str] = [
-    "Proof State 1",
-    "Proof State 2",
-    "Proof State 3",
-    "Proof State 4",
-    "Proof State 5",
-]
-
-
 @app.websocket("/ws")
 async def proof_solver_websocket(websocket: WebSocket):
+    """
+    WebSocket endpoint for proof solver, this endpoint is used to solve the proof and communicate with the client.
+    """
     logging.info("[WebSocket] connection attempt")
 
     try:
@@ -66,18 +39,15 @@ async def proof_solver_websocket(websocket: WebSocket):
     logging.info("[WebSocket] connection established")
 
     try:
-        # Send each proof state
-        for proof_state in PROOF_STATES:
-            # wait for a random time
-            await asyncio.sleep(random.uniform(2, 4.5))
-            await websocket.send_text(proof_state)
-
-        # Send completion message
-        await asyncio.sleep(random.uniform(2, 4.5))
-        await websocket.send_text("PROOF_COMPLETE")
+        for response in do_work("example (a b c : Nat): c + a + b = a + (b + c) := by"):
+            logging.info(f"[WebSocket] sending response: {response}")
+            await websocket.send_text(response)
+            await asyncio.sleep(randint(1, 3))
 
     except WebSocketDisconnect:
         logging.info("[WebSocket] disconnected")
     except Exception as e:
         logging.error(f"[WebSocket] Error: {e}")
         raise e
+
+    await websocket.close()
