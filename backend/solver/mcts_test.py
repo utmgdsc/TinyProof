@@ -65,19 +65,31 @@ def do_work(prompt: str) -> Generator[str, None, None]:
         json_input = json.dumps(repl_command)
 
         # Run the Lake REPL and pipe the JSON input directly
-        process = subprocess.run(
-            [DEFAULT_LAKE_PATH, "exe", 'repl'],
-            input=json_input,
-            capture_output=True,
-            text=True,
-            cwd=DEFAULT_LEAN_WORKSPACE,
-            timeout=300
-        )
+        try:
+          process = subprocess.run(
+              [DEFAULT_LAKE_PATH, "exe", 'repl'],
+              input=json_input,
+              capture_output=True,
+              text=True,
+              cwd=DEFAULT_LEAN_WORKSPACE,
+              timeout=300
+          )
+        except subprocess.SubprocessError as e:
+          print(f"Error running subprocess: {e}")
+          yield f"Subprocess failed: {e}"
+          break
 
+        if process.returncode != 0:
+            yield f"Lake error: \n{process.stderr}"
+            break
+            
         # yield process.stderr
-        # print(f'process.stderr: {process.stderr}')
 
-        output = json.loads(process.stdout)
+        try:
+          output = json.loads(process.stdout)
+        except:
+            yield f"Invalid JSON from Lean:\n{process.stdout}"
+            break
         messages = output.get("messages")
 
         if messages is None or len(get_errors(messages)) == 0:
