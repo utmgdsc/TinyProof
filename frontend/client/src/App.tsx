@@ -150,11 +150,11 @@ function App() {
       .catch(console.error);
   }, []);
 
-  useEffect(() => {
-    if (editor && proofs.length > 0) {
-      setContent(proofs[currentIndex]);
-    }
-  }, [editor, proofs]);
+  // useEffect(() => {
+  //   if (editor && proofs.length > 0) {
+  //     setContent(proofs[currentIndex]);
+  //   }
+  // }, [editor, proofs]);
 
   // Load preferences from store in the beginning
   useEffect(() => {
@@ -528,6 +528,7 @@ function App() {
     onConnect: () => {
       console.log("Connected to solver");
       setContent("Generating proof...");
+      setProofs([]);
     },
     onDisconnect: () => {
       console.log("Disconnected from solver");
@@ -537,6 +538,7 @@ function App() {
     },
     onProofStep: (step) => {
       setContent(step);
+      setProofs((prev) => [...prev, step]);
     },
   });
 
