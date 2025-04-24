@@ -5,6 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from solver.mcts_test import do_work
+from solver.rmaxts import generate_whole_proof
 
 app = FastAPI(dependencies=[])
 
@@ -39,10 +40,21 @@ async def proof_solver_websocket(websocket: WebSocket):
     logging.info("[WebSocket] connection established")
 
     try:
-        for response in do_work("example (a b c : Nat): c + a + b = a + (b + c) := by"):
-            logging.info(f"[WebSocket] sending response: {response}")
-            await websocket.send_text(response)
+        theorem_raw = await websocket.receive_text() # USERS TYPED OUT THEOREM
+        theorem: str = str(theorem_raw)
+        logging.info(f"[WebSocket] received theorem: {theorem[:80]}…")
+
+        for step in generate_whole_proof(theorem):
+            logging.info(f"[WebSocket] sending step: {step[:80]}…")
+            await websocket.send_text(step)
             await asyncio.sleep(randint(1, 3))
+
+        # Uncomment the block below to use the do_work function instead of generate_whole_proof
+
+        # for response in do_work("example (a b c : Nat): c + a + b = a + (b + c) := by"):
+        #     logging.info(f"[WebSocket] sending response: {response}")
+        #     await websocket.send_text(response)
+        #     await asyncio.sleep(randint(1, 3))
 
     except WebSocketDisconnect:
         logging.info("[WebSocket] disconnected")

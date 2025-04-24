@@ -40,7 +40,7 @@ export default function useSolver({
   const [generating, setGenerating] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
-  const start = () => {
+  const start = (initialCode: String) => {
     // Clean up existing connection if any
     if (wsRef.current) {
       wsRef.current.close();
@@ -63,6 +63,8 @@ export default function useSolver({
       setGenerating(true);
       console.log("Connected to solver websocket");
       onConnect?.();
+
+      ws.send(initialCode.toString()); // SENDING USERS THEOREM TO BACKEND
     };
 
     ws.onmessage = (event) => {
