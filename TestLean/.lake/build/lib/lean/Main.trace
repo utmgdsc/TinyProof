@@ -1,0 +1,5 @@
+{"log":
+ [{"message":
+   ".> LEAN_PATH=././.lake/build/lib/lean /Users/sahibsethi/.elan/toolchains/leanprover--lean4---v4.18.0/bin/lean ././././Main.lean -R ./././. -o ././.lake/build/lib/lean/Main.olean -i ././.lake/build/lib/lean/Main.ilean -c ././.lake/build/ir/Main.c --json",
+   "level": "trace"}],
+ "depHash": "11813611291586507870"}

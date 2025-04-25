@@ -1,0 +1,5 @@
+{"log":
+ [{"message":
+   ".> MACOSX_DEPLOYMENT_TARGET=99.0 /Users/sahibsethi/.elan/toolchains/leanprover--lean4---v4.18.0/bin/clang -o ././.lake/build/bin/testlean ././.lake/build/ir/Main.c.o.export ././.lake/build/ir/TestLean/Basic.c.o.export ././.lake/build/ir/TestLean.c.o.export --sysroot /Users/sahibsethi/.elan/toolchains/leanprover--lean4---v4.18.0 -L /Users/sahibsethi/.elan/toolchains/leanprover--lean4---v4.18.0/lib -L /Users/sahibsethi/.elan/toolchains/leanprover--lean4---v4.18.0/lib/libc -fuse-ld=lld -L /Users/sahibsethi/.elan/toolchains/leanprover--lean4---v4.18.0/lib/lean -lleancpp -lInit -lStd -lLean -lleanrt -lc++ -lLake -lgmp -luv",
+   "level": "trace"}],
+ "depHash": "15874501624697957523"}
