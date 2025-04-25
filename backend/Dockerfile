@@ -21,7 +21,10 @@ ENV PATH="/root/.elan/bin:${PATH}"
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --default-timeout=100 -r requirements.txt 
+
+# Install torch with CUDA 11.8 support
+RUN pip install torch --index-url https://download.pytorch.org/whl/cu118
 
 # Copy the rest of the application
 COPY . .

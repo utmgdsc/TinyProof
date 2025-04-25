@@ -6,6 +6,7 @@ RMaxTS Proof Search.
 import math
 import random
 
+
 class Node:
     def __init__(self, state, parent=None):
         self.state = state
@@ -13,6 +14,7 @@ class Node:
         self.children = []  # List of (tactic, prior_prob, child_node)
         self.visit_count = 0
         self.total_reward = 0.0
+
 
 class RMaxTS:
     def __init__(self, model, tokenizer, verifier, c=1.0, b=1.0, max_depth=10, num_beams=5):
@@ -50,8 +52,9 @@ class RMaxTS:
         """
         if num_beams is None:
             num_beams = self.num_beams
-        
-        inputs = self.tokenizer(state + "\nNext tactic: ", return_tensors="pt").to(self.model.device)
+
+        inputs = self.tokenizer(state + "\nNext tactic: ",
+                                return_tensors="pt").to(self.model.device)
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=50,
@@ -63,7 +66,8 @@ class RMaxTS:
         )
         tactics = []
         for i, output in enumerate(outputs):
-            tactic = self.tokenizer.decode(output[inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+            tactic = self.tokenizer.decode(
+                output[inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
             prior_prob = 1.0 / (i + 1) if not do_sample else 0.5
             tactics.append((tactic, prior_prob))
         return tactics
@@ -87,8 +91,10 @@ class RMaxTS:
         if child_node.visit_count == 0:
             return float("inf")
         exploitation = child_node.total_reward / child_node.visit_count
-        exploration = self.c * math.sqrt(math.log(parent_visits) / child_node.visit_count)
-        bonus = self.b / math.sqrt(child_node.visit_count)  # RMaxTS intrinsic reward
+        exploration = self.c * \
+            math.sqrt(math.log(parent_visits) / child_node.visit_count)
+        # RMaxTS intrinsic reward
+        bonus = self.b / math.sqrt(child_node.visit_count)
         return exploitation + exploration + bonus
 
     def expand(self, node):
@@ -115,7 +121,8 @@ class RMaxTS:
                 return 0.0
             if is_complete:  # Success
                 return 1.0
-            tactics = self.generate_tactics(current_state, num_beams=1, do_sample=True)
+            tactics = self.generate_tactics(
+                current_state, num_beams=1, do_sample=True)
             if not tactics:
                 break
             tactic, _ = tactics[0]
@@ -161,7 +168,7 @@ class RMaxTS:
             return None
         best_child = max(self.root.children, key=lambda x: x[2].visit_count)
         return best_child[0]  # Return the tactic
-    
+
     def generate_whole_proof(self, theorem: str, iterations_per_sim: int = 100):
         """
         Run a proof search given a theorem prompt.
@@ -171,30 +178,34 @@ class RMaxTS:
         iterations_per_sim: number of iterations per MCTS simulation for next tactic
         """
         current_state = theorem
-        proof_steps = []
 
         while True:
             is_valid, is_complete = self.verify_state(current_state)
+
             if not is_valid:
                 print("Invalid state reached. Stopping.")
                 break
+
             if is_complete:
                 print("Proof complete!")
                 break
-            best_tactic = self.search_best_tactic(current_state, num_iterations = iterations_per_sim)
+
+            best_tactic = self.search_best_tactic(
+                current_state, num_iterations=iterations_per_sim
+            )
 
             # happens e.g. if input theorem is invalid, no valid child states generated, exhausted search space
             if best_tactic is None:
                 print("No valid tactics found. Stopping.")
                 break
+            
             print("Applying tactic:", best_tactic)
-            proof_steps.append(best_tactic)
+            yield best_tactic
             current_state += "\n" + best_tactic
 
         print("Final proof state:", current_state)
-        print("Proof steps:", proof_steps)
 
-        #return proof_steps
+        yield current_state
 
 
 if __name__ == "__main__":

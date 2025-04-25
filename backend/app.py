@@ -1,11 +1,10 @@
-import asyncio
 import logging
-from random import randint
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from solver.mcts_test import do_work
-from solver.rmaxts import generate_whole_proof
+from solver.dummy import NotAVerifier
+from solver.rmaxts import RMaxTS
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 app = FastAPI(dependencies=[])
 
@@ -17,6 +16,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# load model
+model_name = "deepseek-ai/DeepSeek-Prover-V1.5-RL"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
 
 
 @app.get("/")
@@ -40,14 +45,24 @@ async def proof_solver_websocket(websocket: WebSocket):
     logging.info("[WebSocket] connection established")
 
     try:
-        theorem_raw = await websocket.receive_text() # USERS TYPED OUT THEOREM
+        theorem_raw = await websocket.receive_text()  # USERS TYPED OUT THEOREM
         theorem: str = str(theorem_raw)
         logging.info(f"[WebSocket] received theorem: {theorem[:80]}…")
 
-        for step in generate_whole_proof(theorem):
+        verifier = NotAVerifier()
+
+        rmax_ts = RMaxTS(model=None, tokenizer=None, verifier=verifier)
+
+        # just get the next tactic
+        best_tactic = rmax_ts.search_best_tactic(
+            initial_state=theorem, num_iterations=100
+        )
+
+        print(f"Best tactic: {best_tactic}")
+
+        for step in rmax_ts.generate_whole_proof(theorem=theorem):
             logging.info(f"[WebSocket] sending step: {step[:80]}…")
             await websocket.send_text(step)
-            await asyncio.sleep(randint(1, 3))
 
         # Uncomment the block below to use the do_work function instead of generate_whole_proof
 

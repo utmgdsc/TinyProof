@@ -7,6 +7,13 @@ services:
       - "5050:5050"
     environment:
       - PORT=5050
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   frontend:
     build:
@@ -14,5 +21,5 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    depends_on:
-      - backend 
+    # depends_on:
+    #   - backend
