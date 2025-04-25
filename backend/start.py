@@ -1,6 +1,8 @@
 from argparse import ArgumentParser, Namespace
 import uvicorn
 
+print(f'Here before any imports')
+
 # Importing app here makes the syntax cleaner as it will be picked up by refactors
 from app import app
 

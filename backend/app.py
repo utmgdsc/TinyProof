@@ -1,10 +1,14 @@
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from solver.dummy import NotAVerifier
 from solver.rmaxts import RMaxTS
-from transformers import AutoModelForCausalLM, AutoTokenizer
+
+print('Before transformers')
+print('After transformers')
 
 app = FastAPI(dependencies=[])
 
@@ -18,10 +22,22 @@ app.add_middleware(
 )
 
 
+print("CUDA available:", torch.cuda.is_available())
+print("Number of GPUs:", torch.cuda.device_count())
+
 # load model
+print('a')
 model_name = "deepseek-ai/DeepSeek-Prover-V1.5-RL"
+print('b')
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+print('c')
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, device_map="auto",
+    torch_dtype=torch.float16,    # half-precision
+    low_cpu_mem_usage=True,       # streams weights, lowers RAM spike
+    load_in_8bit=True             # if you’ve installed bitsandbytes
+)
+print('d')
 
 
 @app.get("/")
