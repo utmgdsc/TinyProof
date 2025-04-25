@@ -51,7 +51,7 @@ async def proof_solver_websocket(websocket: WebSocket):
 
         verifier = NotAVerifier()
 
-        rmax_ts = RMaxTS(model=None, tokenizer=None, verifier=verifier)
+        rmax_ts = RMaxTS(model=model, tokenizer=tokenizer, verifier=verifier)
 
         # just get the next tactic
         best_tactic = rmax_ts.search_best_tactic(
