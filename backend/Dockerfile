@@ -26,6 +26,8 @@ RUN pip install --default-timeout=100 -r requirements.txt
 # Install torch with CUDA 11.8 support
 RUN pip install torch --index-url https://download.pytorch.org/whl/cu118
 
+RUN pip install accelerate
+
 # Copy the rest of the application
 COPY . .
 
@@ -36,4 +38,4 @@ ENV PORT=8080
 EXPOSE ${PORT}
 
 # Command to run the application
-CMD python start.py --port ${PORT}
+CMD python -u start.py --port ${PORT}
