@@ -1,212 +1,201 @@
-"""
-RMaxTS Proof Search.
-"""
-
-# frameworks
 import math
 import random
+from typing import List, Tuple
+
+import torch
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer
+
+from solver.dummy import NotAVerifier
 
 
 class Node:
-    def __init__(self, state, parent=None):
-        self.state = state
+    def __init__(self, state: str, parent=None):
+        self.state: str = state
         self.parent = parent
-        self.children = []  # List of (tactic, prior_prob, child_node)
-        self.visit_count = 0
-        self.total_reward = 0.0
+        self.children: List[Tuple[str, float, "Node"]] = []  # (tactic, prior_prob, child_node)
+        self.visit_count: int = 0
+        self.total_reward: float = 0.0
 
 
 class RMaxTS:
-    def __init__(self, model, tokenizer, verifier, c=1.0, b=1.0, max_depth=10, num_beams=5):
+    """
+    RMaxTS proof search integrating DeepSeek model for tactic generation
+    and a verifier for proof state validity.
+    """
+    def __init__(
+        self,
+        model: AutoModelForCausalLM,
+        tokenizer: AutoTokenizer,
+        verifier=NotAVerifier(),
+        num_sequences: int = 5,
+        max_new_tokens: int = 1000,
+        temperature: float = 0.7,
+        top_p: float = 0.95,
+        do_sample: bool = True,
+    ):
         self.model = model
         self.tokenizer = tokenizer
         self.verifier = verifier
-        self.c = c  # Exploration constant for UCT
-        self.b = b  # Intrinsic reward bonus for RMaxTS exploration
-        self.max_depth = max_depth
-        self.num_beams = num_beams
-        self.root = None
-        self.verification_cache = {}  # Cache: state -> (is_valid, is_complete)
+        self.num_sequences = num_sequences
+        self.max_new_tokens = max_new_tokens
+        self.temperature = temperature
+        self.top_p = top_p
+        self.do_sample = do_sample
+        self.verification_cache = {}
 
-    def verify_state(self, state):
-        """Verify a state, using cache to avoid redundant checks."""
+    def verify_state(self, state: str) -> Tuple[bool, bool]:
+        """
+        Verify a proof state. Returns (is_valid, is_complete).
+        Uses a cache to avoid redundant remote calls.
+        """
         if state not in self.verification_cache:
-            # TODO: modify verifier implementation
             is_valid, is_complete = self.verifier.verify(state)
             self.verification_cache[state] = (is_valid, is_complete)
         return self.verification_cache[state]
 
-    def is_terminal(self, node):
-        """A node is terminal if invalid or proof is complete."""
+    def is_terminal(self, node: Node) -> bool:
+        """A node is terminal if invalid or proof complete."""
         is_valid, is_complete = self.verify_state(node.state)
-        return not is_valid or is_complete
+        return (not is_valid) or is_complete
 
-    def is_proof_complete(self, state):
-        """Check if the proof is complete."""
+    def is_proof_complete(self, state: str) -> bool:
+        """Check if a proof state is complete."""
         _, is_complete = self.verify_state(state)
         return is_complete
 
-    def generate_tactics(self, state, num_beams=None, do_sample=False):
+    def generate_tactics(self, state: str) -> List[Tuple[str, float]]:
         """
-        Generate possible next tactics using the language model.
+        Use the language model to propose a set of tactics.
+        Returns a list of (tactic_str, prior_probability).
         """
-        if num_beams is None:
-            num_beams = self.num_beams
-
-        inputs = self.tokenizer(state + "\nNext tactic: ",
-                                return_tensors="pt").to(self.model.device)
+        inputs = self.tokenizer(state, return_tensors="pt").to(self.model.device)
         outputs = self.model.generate(
-            **inputs,
-            max_new_tokens=50,
-            num_beams=num_beams,
-            num_return_sequences=num_beams if not do_sample else 1,
-            do_sample=do_sample,
-            temperature=0.7 if do_sample else None,
-            pad_token_id=self.tokenizer.eos_token_id
+            inputs["input_ids"],
+            max_new_tokens=self.max_new_tokens,
+            num_return_sequences=self.num_sequences,
+            do_sample=self.do_sample,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            pad_token_id=self.tokenizer.eos_token_id,
         )
         tactics = []
-        for i, output in enumerate(outputs):
-            tactic = self.tokenizer.decode(
-                output[inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
-            prior_prob = 1.0 / (i + 1) if not do_sample else 0.5
-            tactics.append((tactic, prior_prob))
+        for idx, out in enumerate(outputs):
+            # extract generated tokens after the prompt length
+            prompt_len = inputs["input_ids"].shape[1]
+            tactic = self.tokenizer.decode(out[prompt_len:], skip_special_tokens=True).strip()
+            prior = 1.0 / (idx + 1) if not self.do_sample else 1.0 / self.num_sequences
+            tactics.append((tactic, prior))
         return tactics
 
-    def select(self, node):
+    def select(self, node: Node) -> Node:
         """
-        Select a node to expand using UCT with RMaxTS bonus.
+        Select a leaf to expand using UCT formula.
         """
         while node.children and not self.is_terminal(node):
-            node = max(
-                node.children,
-                key=lambda x: self.uct_value(x[2], node.visit_count),
-                default=None
-            )[2]
+            total_N = sum(child_node.visit_count for _, _, child_node in node.children) + 1
+            log_total = math.log(total_N)
+            best_score = -float("inf")
+            best_child = None
+            for tactic, prior, child_node in node.children:
+                if child_node.visit_count == 0:
+                    score = prior
+                else:
+                    score = (child_node.total_reward / child_node.visit_count) + math.sqrt(
+                        2 * log_total / child_node.visit_count
+                    )
+                if score > best_score:
+                    best_score = score
+                    best_child = child_node
+            node = best_child
         return node
 
-    def uct_value(self, child_node, parent_visits):
+    def expand(self, node: Node) -> Node:
         """
-        Compute UCT value with intrinsic exploration bonus.
+        Expand a leaf by generating child nodes for each tactic.
         """
-        if child_node.visit_count == 0:
-            return float("inf")
-        exploitation = child_node.total_reward / child_node.visit_count
-        exploration = self.c * \
-            math.sqrt(math.log(parent_visits) / child_node.visit_count)
-        # RMaxTS intrinsic reward
-        bonus = self.b / math.sqrt(child_node.visit_count)
-        return exploitation + exploration + bonus
-
-    def expand(self, node):
-        """
-        Expand node by generating valid child states.
-        """
-        tactics = self.generate_tactics(node.state)
-        for tactic, prior_prob in tactics:
+        for tactic, prob in self.generate_tactics(node.state):
             new_state = node.state + "\n" + tactic
-            is_valid, is_complete = self.verify_state(new_state)
-            if is_valid:  # Only add valid states, truncating invalid paths
-                child_node = Node(new_state, parent=node)
-                node.children.append((tactic, prior_prob, child_node))
+            child = Node(new_state, parent=node)
+            node.children.append((tactic, prob, child))
+        return node
 
-    def simulate(self, state):
+    def simulate(self, node: Node, max_depth: int = 5) -> float:
         """
-        Simulate a random proof path until terminal or max depth.
+        Perform a random rollout from this node to estimate reward.
         """
-        current_state = state
-        depth = 0
-        while depth < self.max_depth:
-            is_valid, is_complete = self.verify_state(current_state)
-            if not is_valid:  # Truncate on error
+        state = node.state
+        for _ in range(max_depth):
+            valid, complete = self.verify_state(state)
+            if not valid:
                 return 0.0
-            if is_complete:  # Success
+            if complete:
                 return 1.0
-            tactics = self.generate_tactics(
-                current_state, num_beams=1, do_sample=True)
+            tactics = self.generate_tactics(state)
             if not tactics:
-                break
-            tactic, _ = tactics[0]
-            current_state += "\n" + tactic
-            depth += 1
-        # Check final state after max_depth
-        _, is_complete = self.verify_state(current_state)
-        return 1.0 if is_complete else 0.0
+                return 0.0
+            # random pick
+            state += "\n" + random.choice(tactics)[0]
+        return 0.0
 
-    def backpropagate(self, node, reward):
+    def backup(self, path: List[Node], reward: float):
         """
-        Update node statistics up the tree.
+        Backpropagate reward along the path of nodes.
         """
-        while node is not None:
+        for node in path:
             node.visit_count += 1
             node.total_reward += reward
-            node = node.parent
 
-    def search_best_tactic(self, initial_state, num_iterations=100):
+    def search_best_tactic(self, initial_state: str, num_iterations: int = 100) -> str:
         """
-        Perform RMaxTS search to find the best next tactic.
+        Run MCTS for a fixed number of iterations to choose the next tactic.
         """
         self.root = Node(initial_state)
-        is_valid, _ = self.verify_state(initial_state)
-        if not is_valid:
-            return None  # Invalid initial state
+        valid, _ = self.verify_state(initial_state)
+        if not valid:
+            return None
 
         for _ in range(num_iterations):
-            node = self.select(self.root)
-            if self.is_terminal(node):
-                reward = 1.0 if self.is_proof_complete(node.state) else 0.0
+            leaf = self.select(self.root)
+            if self.is_terminal(leaf):
+                reward = 1.0 if self.is_proof_complete(leaf.state) else 0.0
             else:
-                self.expand(node)
-                if node.children:
-                    child = random.choice(node.children)[2]
-                    reward = self.simulate(child.state)
-                else:
-                    reward = 0.0  # No valid children
-            self.backpropagate(node, reward)
+                expanded = self.expand(leaf)
+                reward = self.simulate(expanded)
+            # collect path
+            path = []
+            node = leaf
+            while node:
+                path.append(node)
+                node = node.parent
+            self.backup(path, reward)
 
-        # Select the best child tactic based on visit count
-        if not self.root.children:
-            return None
-        best_child = max(self.root.children, key=lambda x: x[2].visit_count)
-        return best_child[0]  # Return the tactic
+        # choose child with highest visit count
+        best = max(self.root.children, key=lambda x: x[2].visit_count)
+        return best[0]
 
     def generate_whole_proof(self, theorem: str, iterations_per_sim: int = 100):
         """
-        Run a proof search given a theorem prompt.
-
-        params
-        theorem: the initial theorem statement
-        iterations_per_sim: number of iterations per MCTS simulation for next tactic
+        Iteratively apply search_best_tactic until proof completes or fails.
+        Yields each tactic, then the final state.
         """
-        current_state = theorem
-
+        state = theorem
         while True:
-            is_valid, is_complete = self.verify_state(current_state)
-
-            if not is_valid:
-                print("Invalid state reached. Stopping.")
+            valid, complete = self.verify_state(state)
+            if not valid:
                 break
-
-            if is_complete:
-                print("Proof complete!")
+            if complete:
                 break
-
-            best_tactic = self.search_best_tactic(
-                current_state, num_iterations=iterations_per_sim
-            )
-
-            # happens e.g. if input theorem is invalid, no valid child states generated, exhausted search space
-            if best_tactic is None:
-                print("No valid tactics found. Stopping.")
+            tactic = self.search_best_tactic(state, iterations_per_sim)
+            if tactic is None:
                 break
-            
-            print("Applying tactic:", best_tactic)
-            yield best_tactic
-            current_state += "\n" + best_tactic
+            yield tactic
+            state += "\n" + tactic
+        # finally yield the full proof state
+        yield state
 
-        print("Final proof state:", current_state)
-
-        yield current_state
-
-
-if __name__ == "__main__":
-    pass
+    def close(self):
+        """
+        Cleanup verifier resources if applicable.
+        """
+        if hasattr(self.verifier, "close"):
+            self.verifier.close()
