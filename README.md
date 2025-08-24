@@ -2,6 +2,33 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-TinyProof-blue?logo=github)](https://github.com/utmgdsc/TinyProof)
 
+<!-- Tech Stack Badges -->
+<p align="center">
+  <!-- Backend -->
+  <img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white" alt="Flask"/>
+  <img src="https://img.shields.io/badge/Lean4-FF6F00?logo=leanpub&logoColor=white" alt="Lean4"/>
+
+  <!-- Frontend -->
+  <img src="https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB" alt="React"/>
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Monaco%20Editor-007ACC?logo=visualstudiocode&logoColor=white" alt="Monaco Editor"/>
+
+  <!-- ML/RL -->
+  <img src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white" alt="PyTorch"/>
+  <img src="https://img.shields.io/badge/R'max%20Tree%20Search-4CAF50?logo=treehouse&logoColor=white" alt="Rmax Tree Search"/>
+
+  <!-- Infra -->
+  <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/GCP-4285F4?logo=googlecloud&logoColor=white" alt="Google Cloud"/>
+  <img src="https://img.shields.io/badge/LeanDojo-FF9800?logo=theconversation&logoColor=white" alt="LeanDojo"/>
+
+  <!-- Dev -->
+  <img src="https://img.shields.io/badge/Jira-0052CC?logo=jira&logoColor=white" alt="Jira"/>
+  <img src="https://img.shields.io/badge/CI%2FCD-2088FF?logo=githubactions&logoColor=white" alt="CI/CD"/>
+</p>
+
+
 An RL-based theorem prover extending AlphaProof using R'max Tree Search, achieving 87% accuracy on college-level mathematical proofs.
 
 ## Overview
