@@ -110,15 +110,6 @@ Our ETL pipeline leverages LeanDojo to:
 - Load processed data into scalable GCP storage
 - Enable continuous learning and model improvement
 
-## Contributing
-
-This is an active research project. Contributions are welcome through:
-
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request with detailed description
-4. Coordinate through our Jira project management system
-
 ## Project Structure
 
 ```
@@ -128,10 +119,6 @@ TinyProof/
 ├── docker-compose.yml # Multi-container orchestration
 └── README.md         # This file
 ```
-
-## License
-
-This project is part of ongoing research at University of Toronto Mississauga under Dr. Mohammad's supervision.
 
 ## Acknowledgments
 
